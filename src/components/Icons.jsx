@@ -102,6 +102,24 @@ export const Dots = ({ size }) => (
     <circle cx="5" cy="12" r="1" />
   </svg>
 );
+export const Key = ({ size }) => (
+  <svg {...base(size)}>
+    <circle cx="7.5" cy="15.5" r="4.5" />
+    <path d="m10.7 12.3 8.3-8.3M15 5l3 3M17 7l2.5-2.5" />
+  </svg>
+);
+export const Eye = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+export const EyeOff = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a13 13 0 0 1-1.67 2.68M6.6 6.6A13 13 0 0 0 2 12s3.5 7 10 7a9 9 0 0 0 3.4-.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <line x1="2" y1="2" x2="22" y2="22" />
+  </svg>
+);
 export const MapPin = ({ size }) => (
   <svg {...base(size)}>
     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
