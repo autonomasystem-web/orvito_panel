@@ -29,6 +29,18 @@ export function AuthProvider({ children }) {
     async signOut() {
       await supabase.auth.signOut();
     },
+    // Cambia la contraseña del usuario actual, verificando primero la actual.
+    async changePassword(currentPassword, newPassword) {
+      const email = session?.user?.email;
+      if (!email) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const { error: e1 } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+      if (e1) throw new Error("La contraseña actual no es correcta.");
+      const { error: e2 } = await supabase.auth.updateUser({ password: newPassword });
+      if (e2) throw new Error(e2.message || "No se pudo actualizar la contraseña.");
+    },
   };
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

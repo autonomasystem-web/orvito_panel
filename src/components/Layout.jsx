@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Leaf } from "./Icons.jsx";
+import { Grid, Folder, Percent, Chat, Sparkles, Logout, Leaf, Key } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
+import ChangePasswordModal from "./ChangePasswordModal.jsx";
 
 const NAV = [
   { to: "/", label: "Dashboard", short: "Dashboard", icon: Grid, end: true },
@@ -23,8 +25,9 @@ function Logo({ compact }) {
 }
 
 export default function Layout({ children }) {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const [pwOpen, setPwOpen] = useState(false);
   const logout = async () => {
     await signOut();
     navigate("/login", { replace: true });
@@ -57,23 +60,42 @@ export default function Layout({ children }) {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto space-y-3 px-1">
+        <div className="mt-auto space-y-1 px-1">
+          {user?.email && (
+            <p className="truncate px-2 pb-1 text-[11px] text-white/40" title={user.email}>
+              {user.email}
+            </p>
+          )}
+          <button
+            onClick={() => setPwOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <Key size={20} /> Cambiar contraseña
+          </button>
           <button
             onClick={logout}
-            className="flex items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
           >
             <Logout size={20} /> Cerrar sesión
           </button>
-          <p className="px-1 text-[11px] text-white/35">Powered by Autónoma System</p>
         </div>
       </aside>
 
       {/* Top bar móvil */}
       <header className="sticky top-0 z-30 flex items-center justify-between bg-gradient-to-r from-brand-dark to-brand-darkest px-4 py-3.5 md:hidden">
         <Logo />
-        <button onClick={logout} className="p-1 text-white/80" aria-label="Cerrar sesión">
-          <Logout size={22} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPwOpen(true)}
+            className="p-1 text-white/80"
+            aria-label="Cambiar contraseña"
+          >
+            <Key size={22} />
+          </button>
+          <button onClick={logout} className="p-1 text-white/80" aria-label="Cerrar sesión">
+            <Logout size={22} />
+          </button>
+        </div>
       </header>
 
       {/* Contenido */}
@@ -100,6 +122,8 @@ export default function Layout({ children }) {
           </NavLink>
         ))}
       </nav>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>
   );
 }
