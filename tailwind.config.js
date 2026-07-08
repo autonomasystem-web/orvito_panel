@@ -4,27 +4,31 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paleta ORVE (extraída del diseño)
+        // Paleta oficial ORVE (junio 2026), mapeada por rol y contraste
         brand: {
-          darkest: "#0f2e22", // sidebar más oscuro
-          dark: "#1e4d3b", // verde primario
-          green: "#2e7d5b", // acento
-          moss: "#3b7a5e",
-          leaf: "#3fa57a", // acento brillante
+          DEFAULT: "#38D030", // verde vivo (acento) — solo con texto oscuro encima
+          darkest: "#033600", // gradiente del sidebar (fondo)
+          dark: "#064F00", // sidebar, encabezados, botones primarios (texto blanco ✓)
+          strong: "#108707", // fondos verdes con texto blanco
+          green: "#108707", // verdes sobre blanco (contraste correcto)
+          moss: "#157a10",
+          leaf: "#38D030", // acento brillante: puntos, focus, estados activos
+          lime: "#83BC4A", // badges suaves / series de gráficas
+          tint: "#EAF9E8", // hovers y zonas destacadas
         },
-        ink: "#2a2e2c",
-        muted: "#6b7570",
-        muted2: "#9aa39e",
-        line: "#e3e7e5",
-        canvas: "#f1f4f2", // fondo de la app
-        soft: "#e9f0ec", // verde claro (chips/banners)
-        softer: "#f4f6f5",
+        ink: "#12271a",
+        muted: "#5c6b60",
+        muted2: "#93a396",
+        line: "#dde8dc",
+        canvas: "#F4F7F5", // fondo de la app (oficial)
+        soft: "#EAF9E8", // verde claro (chips/banners) = tint oficial
+        softer: "#f2f8f1",
         danger: "#b4554e",
         amber: "#a6772a",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Sora", "Inter", "sans-serif"],
+        sans: ["Mulish", "system-ui", "sans-serif"],
+        display: ["Mulish", "system-ui", "sans-serif"],
       },
       boxShadow: {
         card: "0 1px 2px rgba(16,46,34,0.04), 0 4px 16px rgba(16,46,34,0.05)",

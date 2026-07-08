@@ -6,7 +6,7 @@ export const cx = (...a) => a.filter(Boolean).join(" ");
 /* ---------------- Button ---------------- */
 export function Button({ variant = "primary", size = "md", className, children, ...props }) {
   const variants = {
-    primary: "bg-brand-dark text-white hover:bg-brand-darkest disabled:opacity-50",
+    primary: "bg-brand text-ink hover:brightness-95 disabled:opacity-50",
     outline: "bg-white text-ink border border-line hover:bg-softer disabled:opacity-50",
     ghost: "bg-transparent text-muted hover:bg-soft hover:text-ink",
     danger: "bg-danger text-white hover:brightness-95 disabled:opacity-50",

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Leaf } from "../components/Icons.jsx";
 import { Button, Field, Input, useToast } from "../components/ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
+import { LOGO_COLOR } from "../assets/brand.js";
+import bgUrl from "../assets/orve-bg.webp";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -31,13 +32,19 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-white p-8 shadow-card">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas px-4">
+      {/* fondo ORVE (webp ligero) con base de color para carga instantánea */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${bgUrl})` }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/50 via-canvas/60 to-canvas/90" aria-hidden />
+
+      <div className="relative w-full max-w-md rounded-2xl border border-line bg-white/95 p-8 shadow-modal backdrop-blur-sm">
         <div className="flex flex-col items-center text-center">
-          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-soft text-brand-leaf">
-            <Leaf size={28} />
-          </span>
-          <h1 className="mt-4 font-display text-2xl font-bold text-brand-dark">Orvito Admin</h1>
+          <img src={LOGO_COLOR} alt="ORVE — Inversión Inmobiliaria" className="h-14 w-auto" />
+          <h1 className="mt-4 font-display text-2xl font-extrabold text-brand-dark">Orvito Admin</h1>
           <p className="mt-1 text-sm text-muted">Panel del equipo ORVE</p>
         </div>
 
@@ -65,7 +72,6 @@ export default function Login() {
           </Button>
         </form>
       </div>
-      <p className="mt-6 text-xs text-muted2">Powered by Autónoma System</p>
     </div>
   );
 }
