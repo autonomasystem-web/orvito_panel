@@ -6,6 +6,7 @@ import Promociones from "./pages/Promociones.jsx";
 import Conversaciones from "./pages/Conversaciones.jsx";
 import Resumenes from "./pages/Resumenes.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Blogs from "./pages/Blogs.jsx";
 import { Leaf } from "./components/Icons.jsx";
 
 function Splash() {
@@ -54,6 +55,14 @@ export default function App() {
         element={
           <Protected>
             <Promociones />
+          </Protected>
+        }
+      />
+      <Route
+        path="/blogs"
+        element={
+          <Protected>
+            <Blogs />
           </Protected>
         }
       />
