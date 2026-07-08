@@ -175,7 +175,7 @@ export default function Conversaciones() {
           )}
 
           {status === "ready" && items.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="seq space-y-2.5">
               {items.map((c) => (
                 <ConvItem key={c.id} c={c} active={sel === c.id} onClick={() => abrir(c.id)} />
               ))}
@@ -242,7 +242,7 @@ function ConvItem({ c, active, onClick }) {
           {porOrvito ? "Orvito" : c.atendida_por}
         </span>
         {c.no_leidos > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand-dark px-1.5 text-[11px] font-semibold text-white">
+          <span className="anim-pop grid h-5 min-w-5 place-items-center rounded-full bg-brand-dark px-1.5 text-[11px] font-semibold text-white">
             {c.no_leidos}
           </span>
         )}

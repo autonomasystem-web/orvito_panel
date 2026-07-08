@@ -131,7 +131,7 @@ export default function Promociones() {
       )}
 
       {status === "ready" && items.length > 0 && (
-        <div className="space-y-4">
+        <div className="seq cards-lift space-y-4">
           {vigentes.map((p) => (
             <PromoCard
               key={p.Id}

@@ -139,7 +139,7 @@ export default function Resumenes() {
       )}
 
       {status === "ready" && filtered.length > 0 && (
-        <div className="space-y-3">
+        <div className="seq cards-lift space-y-3">
           {filtered.map((r) => (
             <ResumenCard
               key={`${r.conversation_id}-${r.fecha}`}

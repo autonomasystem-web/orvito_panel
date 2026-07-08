@@ -20,7 +20,7 @@ export function Button({ variant = "primary", size = "md", className, children, 
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-brand-leaf/40",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition duration-150 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-leaf/40",
         variants[variant],
         sizes[size],
         className
@@ -200,10 +200,10 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
-        className="fixed inset-0 bg-brand-darkest/40 backdrop-blur-[2px]"
+        className="anim-backdrop fixed inset-0 bg-brand-darkest/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className={cx("relative my-8 w-full rounded-2xl bg-white p-6 shadow-modal", w)}>
+      <div className={cx("anim-modal relative my-8 w-full rounded-2xl bg-white p-6 shadow-modal", w)}>
         <div className="mb-4 flex items-start justify-between">
           <h2 className="text-xl font-bold text-brand-dark">{title}</h2>
           <button
@@ -246,7 +246,7 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             className={cx(
-              "pointer-events-auto flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium shadow-modal",
+              "anim-toast pointer-events-auto flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium shadow-modal",
               t.tone === "success" ? "bg-brand-dark text-white" : "bg-danger text-white"
             )}
           >
