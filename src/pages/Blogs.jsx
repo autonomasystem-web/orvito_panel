@@ -129,7 +129,7 @@ export default function Blogs() {
       )}
 
       {status === "ready" && ordenados.length > 0 && (
-        <div className="space-y-3">
+        <div className="seq cards-lift space-y-3">
           {ordenados.map((b) => (
             <BlogCard
               key={b.Id}
@@ -193,7 +193,7 @@ function BlogCard({ b, esReciente, onEdit, onDelete }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-ink">{b.titulo || "(sin título)"}</h3>
             {esReciente && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-brand-green">
+              <span className="anim-pop inline-flex items-center gap-1 rounded-full bg-brand-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-brand-green">
                 <Sparkles size={12} /> Lo comparte Orvito
               </span>
             )}

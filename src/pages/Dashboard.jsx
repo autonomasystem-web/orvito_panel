@@ -135,7 +135,7 @@ export default function Dashboard() {
       {status === "loading" && <DashboardSkeleton />}
 
       {status === "ready" && data && (
-        <div className={cx("space-y-6 transition-opacity", refetching && "opacity-60")}>
+        <div className={cx("seq space-y-6 transition-opacity", refetching && "opacity-60")}>
           {data.parcial && (
             <div className="rounded-xl border border-amber/25 bg-amber/5 px-4 py-3 text-sm text-amber">
               Algunas métricas no están disponibles en este momento. Mostramos lo que sí pudimos calcular.
@@ -163,10 +163,47 @@ export default function Dashboard() {
 }
 
 /* ---------------- KPIs ---------------- */
+// Cuenta de 0 al valor (respeta reduce-motion)
+function useCountUp(target, ms = 900) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (typeof target !== "number" || Number.isNaN(target)) {
+      setN(target);
+      return;
+    }
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || target === 0) {
+      setN(target);
+      return;
+    }
+    let raf;
+    let start;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (ts) => {
+      if (start === undefined) start = ts;
+      const p = Math.min((ts - start) / ms, 1);
+      setN(Math.round(ease(p) * target));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return n;
+}
+function CountUp({ value, suffix = "" }) {
+  const n = useCountUp(value);
+  return (
+    <>
+      {n}
+      {suffix}
+    </>
+  );
+}
+
 function KpiRow({ k, config }) {
   const cards = [
     { label: "Conversaciones", value: k.conversaciones_totales ?? 0, sub: "en el periodo", icon: <Chat size={18} /> },
-    { label: "Atendido por Orvito", value: `${k.porcentaje_bot ?? 0}%`, sub: "sin intervención humana", icon: <Sparkles size={18} />, hero: true },
+    { label: "Atendido por Orvito", value: k.porcentaje_bot ?? 0, suffix: "%", sub: "sin intervención humana", icon: <Sparkles size={18} />, hero: true },
     { label: "Asesores únicos", value: k.asesores_unicos ?? 0, sub: "escribieron a Orvito", icon: <Chat size={18} /> },
     { label: "Con un agente", value: k.abiertas_ahora ?? 0, sub: "ahora mismo", dot: (k.abiertas_ahora ?? 0) > 0 },
     { label: "Materiales activos", value: config.materiales_activos ?? 0, sub: "listos para compartir", icon: <Folder size={18} /> },
@@ -180,7 +217,7 @@ function KpiRow({ k, config }) {
     </div>
   );
 }
-function KpiCard({ label, value, sub, icon, hero, dot }) {
+function KpiCard({ label, value, suffix, sub, icon, hero, dot }) {
   return (
     <Card
       className={cx(
@@ -189,7 +226,7 @@ function KpiCard({ label, value, sub, icon, hero, dot }) {
       )}
     >
       <div className="flex items-center gap-2 text-muted2">
-        {dot && <span className="h-2 w-2 rounded-full bg-amber" />}
+        {dot && <span className="anim-pop h-2 w-2 rounded-full bg-amber" />}
         {icon && !dot && <span className={hero ? "text-brand-leaf" : "text-muted2"}>{icon}</span>}
         <span className="text-xs font-medium text-muted">{label}</span>
       </div>
@@ -199,7 +236,7 @@ function KpiCard({ label, value, sub, icon, hero, dot }) {
           hero ? "text-4xl text-brand-green" : "text-3xl text-brand-dark"
         )}
       >
-        {value}
+        <CountUp value={value} suffix={suffix} />
       </div>
       <span className="text-xs text-muted2">{sub}</span>
     </Card>
