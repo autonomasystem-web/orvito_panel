@@ -22,16 +22,16 @@ import { catLabel } from "./Resumenes.jsx";
 
 /* Paleta ORVE para SVG (Recharts no acepta clases de Tailwind) */
 const C = {
-  dark: "#1e4d3b",
-  green: "#2e7d5b",
-  leaf: "#3fa57a",
-  moss: "#3b7a5e",
-  soft: "#e9f0ec",
-  line: "#e3e7e5",
-  muted: "#6b7570",
+  dark: "#064F00",
+  green: "#108707",
+  leaf: "#38D030",
+  moss: "#157a10",
+  soft: "#EAF9E8",
+  line: "#dde8dc",
+  muted: "#5c6b60",
   amber: "#a6772a",
 };
-const PIE = ["#1e4d3b", "#3fa57a", "#2e7d5b", "#6b9b83", "#a6772a", "#8fb8a3", "#c2d4ca"];
+const PIE = ["#064F00", "#38D030", "#108707", "#83BC4A", "#a6772a", "#157a10", "#c7e6c0"];
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function diaCorto(iso) {

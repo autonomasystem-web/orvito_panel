@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Leaf, Key, Newspaper } from "./Icons.jsx";
+import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
+import { LOGO_WHITE } from "../assets/brand.js";
 
 const NAV = [
   { to: "/", label: "Dashboard", short: "Dashboard", icon: Grid, end: true },
@@ -16,11 +17,13 @@ const NAV = [
 
 function Logo({ compact }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-leaf/15 text-brand-leaf">
-        <Leaf size={20} />
-      </span>
-      {!compact && <span className="font-display text-lg font-bold text-white">Orvito Admin</span>}
+    <div className="flex items-center gap-3">
+      <img src={LOGO_WHITE} alt="ORVE" className="h-8 w-auto" />
+      {!compact && (
+        <span className="border-l border-white/20 pl-3 font-display text-sm font-semibold tracking-wide text-white/90">
+          Orvito Admin
+        </span>
+      )}
     </div>
   );
 }
