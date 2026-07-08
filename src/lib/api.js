@@ -113,6 +113,21 @@ export async function eliminarLote(Id) {
   return call("eliminar_lote", { Id });
 }
 
+/* ----------------- Blogs (tendencias) ----------------- */
+export async function listarBlogs() {
+  const r = await call("listar_blogs", {});
+  return Array.isArray(r.list) ? r.list : [];
+}
+export async function crearBlog(data) {
+  return call("crear_blog", data);
+}
+export async function editarBlog(data) {
+  return call("editar_blog", data);
+}
+export async function eliminarBlog(Id) {
+  return call("eliminar_blog", { Id });
+}
+
 /* ----------------- Conversaciones (proxy Chatwoot vía gateway) ----------------- */
 export async function listarConversaciones({ status = "all", page = 1 } = {}) {
   const r = await call("listar_conversaciones", { status, page });
