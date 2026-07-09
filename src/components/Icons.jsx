@@ -102,6 +102,24 @@ export const Dots = ({ size }) => (
     <circle cx="5" cy="12" r="1" />
   </svg>
 );
+export const Book = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2Z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7Z" />
+  </svg>
+);
+export const Save = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+    <path d="M17 21v-8H7v8M7 3v5h8" />
+  </svg>
+);
+export const Upload = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="M12 3v12M7 8l5-5 5 5" />
+  </svg>
+);
 export const Newspaper = ({ size }) => (
   <svg {...base(size)}>
     <path d="M4 22h14a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a2 2 0 0 1-2-2V8" />
