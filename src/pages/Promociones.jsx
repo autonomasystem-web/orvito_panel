@@ -26,8 +26,6 @@ import {
 } from "../lib/api.js";
 import { estadoPromo, fmtRango, truthy } from "../lib/format.js";
 
-const DESC_MAX = 320;
-
 export default function Promociones() {
   const toast = useToast();
   const [items, setItems] = useState([]);
@@ -216,8 +214,19 @@ function PromoCard({ p, onEdit, onDelete, dimmed }) {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-2">
           <h3 className="text-lg font-semibold text-ink">{p.titulo}</h3>
-          {p.descripcion && (
-            <p className="text-sm leading-relaxed text-muted">{p.descripcion}</p>
+          {(p.beneficio || p.descripcion) && (
+            <p className="text-sm leading-relaxed text-muted">{p.beneficio || p.descripcion}</p>
+          )}
+          {p.codigo_cupon && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-muted2">Cupón:</span>
+              <span className="rounded bg-brand/15 px-2 py-0.5 font-mono font-semibold text-brand-dark">
+                {p.codigo_cupon}
+              </span>
+            </div>
+          )}
+          {p.participantes && (
+            <p className="text-xs text-muted2">Participantes: {p.participantes}</p>
           )}
           {proyectos.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -263,7 +272,10 @@ function PromoCard({ p, onEdit, onDelete, dimmed }) {
 function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
   const toast = useToast();
   const [titulo, setTitulo] = useState(data.titulo || "");
-  const [descripcion, setDescripcion] = useState(data.descripcion || "");
+  const [beneficio, setBeneficio] = useState(data.beneficio || data.descripcion || "");
+  const [legales, setLegales] = useState(data.legales || "");
+  const [participantes, setParticipantes] = useState(data.participantes || "");
+  const [codigoCupon, setCodigoCupon] = useState(data.codigo_cupon || "");
   const [aplica, setAplica] = useState(
     String(data.proyectos_aplica || "")
       .split(",")
@@ -289,7 +301,10 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
     try {
       const payload = {
         titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
+        beneficio: beneficio.trim(),
+        legales: legales.trim(),
+        participantes: participantes.trim(),
+        codigo_cupon: codigoCupon.trim(),
         proyectos_aplica: aplica.join(", "),
         vigencia_inicio: ini || null,
         vigencia_fin: fin || null,
@@ -324,8 +339,8 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
       }
     >
       <Field
-        label="Título"
-        hint={touched && !titulo.trim() ? "El título es obligatorio." : ""}
+        label="Nombre de la promo"
+        hint={touched && !titulo.trim() ? "El nombre es obligatorio." : ""}
         hintTone="amber"
       >
         <Input
@@ -335,23 +350,38 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
         />
       </Field>
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-sm font-medium text-muted">Descripción</span>
-          <span className="text-xs text-muted2">
-            {descripcion.length} / {DESC_MAX}
-          </span>
-        </div>
+      <Field label="Regalo o beneficio al cliente al adquirir la promoción">
         <Textarea
-          maxLength={DESC_MAX}
-          placeholder="Describe la promoción con todo lo que el cliente debe saber…"
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Qué se lleva el cliente al aprovechar la promoción…"
+          value={beneficio}
+          onChange={(e) => setBeneficio(e.target.value)}
         />
-        <p className="mt-1.5 text-xs text-brand-green">
-          Esto es exactamente lo que Orvito sabrá y podrá decir.
-        </p>
+      </Field>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Código para cupón">
+          <Input
+            placeholder="Ej. ORVE10"
+            value={codigoCupon}
+            onChange={(e) => setCodigoCupon(e.target.value)}
+          />
+        </Field>
+        <Field label="Participantes">
+          <Input
+            placeholder="Quién puede participar"
+            value={participantes}
+            onChange={(e) => setParticipantes(e.target.value)}
+          />
+        </Field>
       </div>
+
+      <Field label="Legales de la promoción" hint="Restricciones, letras chiquitas, condiciones.">
+        <Textarea
+          placeholder="Términos y condiciones legales de la promoción…"
+          value={legales}
+          onChange={(e) => setLegales(e.target.value)}
+        />
+      </Field>
 
       <div>
         <span className="mb-2 block text-sm font-medium text-muted">Aplica a estos proyectos</span>

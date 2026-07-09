@@ -67,11 +67,13 @@ export async function listarBrochures() {
 export async function crearBrochure(data) {
   const payload = { ...data };
   if (payload.url) payload.url = normalizeDropbox(payload.url).url; // guarda ya normalizada
+  if (payload.url_en) payload.url_en = normalizeDropbox(payload.url_en).url;
   return call("crear_brochure", payload);
 }
 export async function editarBrochure(data) {
   const payload = { ...data };
   if (payload.url) payload.url = normalizeDropbox(payload.url).url;
+  if (payload.url_en) payload.url_en = normalizeDropbox(payload.url_en).url;
   return call("editar_brochure", payload);
 }
 export async function eliminarBrochure(Id) {

@@ -200,7 +200,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
-        className="anim-backdrop fixed inset-0 bg-brand-darkest/40 backdrop-blur-[2px]"
+        className="anim-backdrop fixed inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div className={cx("anim-modal relative my-8 w-full rounded-2xl bg-white p-6 shadow-modal", w)}>
