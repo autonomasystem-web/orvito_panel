@@ -147,9 +147,9 @@ export default function Documentos() {
         </div>
 
         {/* EDITOR */}
-        <div className={cx(!sel && "hidden md:block")}>
+        <div className={cx("md:sticky md:top-6 md:self-start", !sel && "hidden md:block")}>
           {!sel ? (
-            <Card className="hidden min-h-[420px] flex-col items-center justify-center p-10 text-center md:flex md:h-[calc(100vh-13rem)]">
+            <Card className="hidden min-h-[420px] flex-col items-center justify-center p-10 text-center md:flex md:h-[calc(100vh-7rem)]">
               <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-soft text-brand-dark">
                 <Book size={22} />
               </span>
@@ -268,7 +268,7 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
   }, [texto]);
 
   return (
-    <Card className="flex h-[70vh] min-h-[460px] flex-col overflow-hidden md:h-[calc(100vh-13rem)]">
+    <Card className="flex h-[75vh] min-h-[460px] flex-col overflow-hidden md:h-[calc(100vh-7rem)]">
       {/* header */}
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
         <button
