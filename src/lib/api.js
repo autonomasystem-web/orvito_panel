@@ -167,6 +167,28 @@ export async function resumirAhora(conversationId) {
   return call("resumir_ahora", { conversation_id: conversationId });
 }
 
+/* ----------------- Base de conocimiento (documentos RAG) ----------------- */
+export async function listarDocumentos() {
+  const r = await call("listar_documentos", {});
+  return Array.isArray(r.documentos) ? r.documentos : [];
+}
+export async function verDocumento(nombre) {
+  const r = await call("ver_documento", { nombre });
+  return {
+    nombre_doc: r.nombre_doc || nombre,
+    titulo: r.titulo || nombre,
+    categoria: r.categoria || "",
+    contenido_md: r.contenido_md || "",
+    total_chunks: Number(r.total_chunks) || 0,
+  };
+}
+export async function guardarDocumento(nombre, contenido) {
+  return call("guardar_documento", { nombre, contenido });
+}
+export async function eliminarDocumento(nombre) {
+  return call("eliminar_documento", { nombre });
+}
+
 /* ----------------- Dashboard (métricas agregadas) ----------------- */
 export async function dashboardMetricas(rango = "7d") {
   const r = await call("dashboard_metricas", { rango });
