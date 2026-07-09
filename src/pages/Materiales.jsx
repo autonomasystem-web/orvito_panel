@@ -194,16 +194,8 @@ export default function Materiales() {
 
 /* --------- Card --------- */
 function MaterialCard({ b, onEdit, onDelete, onToggle }) {
-  const [copied, setCopied] = useState(false);
   const [menu, setMenu] = useState(false);
   const activo = truthy(b.activo);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(b.url || "");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1400);
-    } catch {}
-  };
   return (
     <Card className="relative flex flex-col gap-3 p-5">
       <div className="flex items-start justify-between gap-2">
@@ -235,16 +227,9 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
 
       <StatusChip estado={activo ? "Activo" : "Inactivo"} />
 
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-softer px-3 py-2">
-        <span className="truncate text-xs text-muted">{prettyUrl(b.url)}</span>
-        <button
-          onClick={copy}
-          className="ml-auto shrink-0 rounded-md p-1 text-muted2 hover:bg-white hover:text-ink"
-          aria-label="Copiar enlace"
-          title="Copiar enlace"
-        >
-          {copied ? <Check size={15} /> : <Copy size={15} />}
-        </button>
+      <div className="space-y-1.5">
+        <LinkChip label={b.url_en ? "ES" : null} url={b.url} />
+        {b.url_en && <LinkChip label="EN" url={b.url_en} />}
       </div>
 
       {b.notas && <p className="text-sm leading-relaxed text-muted">{b.notas}</p>}
@@ -272,12 +257,14 @@ function MaterialModal({ mode, data, onClose, onSaved }) {
   const toast = useToast();
   const [proyecto, setProyecto] = useState(data.proyecto || "");
   const [url, setUrl] = useState(data.url || "");
+  const [urlEn, setUrlEn] = useState(data.url_en || "");
   const [notas, setNotas] = useState(data.notas || "");
   const [activo, setActivo] = useState(mode === "crear" ? true : truthy(data.activo));
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
   const norm = normalizeDropbox(url);
+  const normEn = normalizeDropbox(urlEn);
   const urlOk = url && isHttps(url);
   const valid = proyecto.trim() && urlOk;
 
@@ -286,7 +273,13 @@ function MaterialModal({ mode, data, onClose, onSaved }) {
     if (!valid) return;
     setSaving(true);
     try {
-      const payload = { proyecto: proyecto.trim(), url: url.trim(), notas: notas.trim(), activo };
+      const payload = {
+        proyecto: proyecto.trim(),
+        url: url.trim(),
+        url_en: urlEn.trim(),
+        notas: notas.trim(),
+        activo,
+      };
       if (mode === "crear") await crearBrochure(payload);
       else await editarBrochure({ Id: data.Id, ...payload });
       onSaved(mode === "crear" ? "Material creado." : "Cambios guardados.");
@@ -325,7 +318,7 @@ function MaterialModal({ mode, data, onClose, onSaved }) {
       </Field>
 
       <Field
-        label="Enlace del brochure (Dropbox)"
+        label="Brochure en español (Dropbox)"
         hint={
           touched && !url
             ? "El enlace es obligatorio."
@@ -341,6 +334,24 @@ function MaterialModal({ mode, data, onClose, onSaved }) {
           placeholder="https://www.dropbox.com/…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
+        />
+      </Field>
+
+      <Field
+        label="Brochure en inglés (Dropbox) — opcional"
+        hint={
+          urlEn && !isHttps(urlEn)
+            ? "Debe ser un enlace https válido."
+            : normEn.changed
+            ? "Se convertirá a descarga directa (raw=1)."
+            : "Si lo agregas, Orvito lo envía cuando el cliente lo pide en inglés."
+        }
+        hintTone={urlEn && !isHttps(urlEn) ? "amber" : "brand"}
+      >
+        <Input
+          placeholder="https://www.dropbox.com/…"
+          value={urlEn}
+          onChange={(e) => setUrlEn(e.target.value)}
         />
       </Field>
 
@@ -360,6 +371,36 @@ function MaterialModal({ mode, data, onClose, onSaved }) {
         <Toggle checked={activo} onChange={setActivo} />
       </div>
     </Modal>
+  );
+}
+
+/* --------- chip de enlace con copiar --------- */
+function LinkChip({ label, url }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {}
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-line bg-softer px-3 py-2">
+      {label && (
+        <span className="shrink-0 rounded bg-brand-dark px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {label}
+        </span>
+      )}
+      <span className="truncate text-xs text-muted">{prettyUrl(url)}</span>
+      <button
+        onClick={copy}
+        className="ml-auto shrink-0 rounded-md p-1 text-muted2 hover:bg-white hover:text-ink"
+        aria-label="Copiar enlace"
+        title="Copiar enlace"
+      >
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+      </button>
+    </div>
   );
 }
 
