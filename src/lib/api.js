@@ -146,6 +146,18 @@ export async function verConversacion(id) {
     mensajes: Array.isArray(r.mensajes) ? r.mensajes : [],
   };
 }
+
+/* ----------------- Estado de Orvito (encendido / mantenimiento) ----------------- */
+export async function obtenerConfig() {
+  const r = await call("obtener_config", {});
+  return {
+    agenteActivo: Boolean(r.agente_activo),
+    mensajeMantenimiento: r.mensaje_mantenimiento || "",
+  };
+}
+export async function setAgenteActivo(activo) {
+  return call("set_agente_activo", { activo });
+}
 export async function cambiarEstadoConversacion(id, status) {
   return call("cambiar_estado_conversacion", { id, status });
 }
