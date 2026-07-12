@@ -4,6 +4,7 @@ import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book } f
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
+import OrvitoStatus from "./OrvitoStatus.jsx";
 import { LOGO_WHITE } from "../assets/brand.js";
 
 const NAV = [
@@ -105,7 +106,10 @@ export default function Layout({ children }) {
 
       {/* Contenido */}
       <main className="md:pl-64">
-        <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-12 md:pt-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-12 md:pt-8">
+          <OrvitoStatus />
+          {children}
+        </div>
       </main>
 
       {/* Bottom nav móvil */}
