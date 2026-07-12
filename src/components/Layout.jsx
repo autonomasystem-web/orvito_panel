@@ -5,6 +5,7 @@ import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
 import OrvitoStatus from "./OrvitoStatus.jsx";
+import AlertasBanner from "./AlertasBanner.jsx";
 import { LOGO_WHITE } from "../assets/brand.js";
 
 const NAV = [
@@ -107,6 +108,7 @@ export default function Layout({ children }) {
       {/* Contenido */}
       <main className="md:pl-64">
         <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-12 md:pt-8">
+          <AlertasBanner />
           <OrvitoStatus />
           {children}
         </div>

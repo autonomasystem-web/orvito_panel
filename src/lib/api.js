@@ -158,6 +158,16 @@ export async function obtenerConfig() {
 export async function setAgenteActivo(activo) {
   return call("set_agente_activo", { activo });
 }
+
+/* ----------------- Alertas / Guardian (fallos de Orvito) ----------------- */
+export async function listarAlertas() {
+  const r = await call("listar_alertas", {});
+  return Array.isArray(r.alertas) ? r.alertas : [];
+}
+export async function resolverAlertas(ids) {
+  // sin ids = descarta todas las no resueltas
+  return call("resolver_alertas", ids && ids.length ? { ids } : {});
+}
 export async function cambiarEstadoConversacion(id, status) {
   return call("cambiar_estado_conversacion", { id, status });
 }
