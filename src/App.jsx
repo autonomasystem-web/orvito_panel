@@ -8,6 +8,7 @@ import Resumenes from "./pages/Resumenes.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Blogs from "./pages/Blogs.jsx";
 import Documentos from "./pages/Documentos.jsx";
+import Entregas from "./pages/Entregas.jsx";
 import { Leaf } from "./components/Icons.jsx";
 
 function Splash() {
@@ -72,6 +73,14 @@ export default function App() {
         element={
           <Protected>
             <Documentos />
+          </Protected>
+        }
+      />
+      <Route
+        path="/entregas"
+        element={
+          <Protected>
+            <Entregas />
           </Protected>
         }
       />
