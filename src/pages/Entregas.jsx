@@ -21,6 +21,15 @@ import { fmtFecha, truthy } from "../lib/format.js";
 
 const TIPOS = ["Privada", "Torre"];
 
+// "Privada 3" / "Torre A", sin duplicar el tipo si el nombre ya lo trae
+function unidadTxt(e) {
+  if (!e) return "";
+  const nom = String(e.nombre || "").trim();
+  const tip = String(e.tipo || "").trim();
+  if (tip && nom && !nom.toLowerCase().startsWith(tip.toLowerCase())) return `${tip} ${nom}`;
+  return nom || tip;
+}
+
 // Fecha de entrega + N meses de prórroga (cálculo)
 function addMonths(iso, n) {
   if (!iso) return "";
@@ -213,7 +222,7 @@ export default function Entregas() {
       >
         <p className="text-sm text-muted">
           <b className="text-ink">
-            {toDelete?.etapa} · {toDelete?.tipo} {toDelete?.nombre}
+            {toDelete?.etapa} · {unidadTxt(toDelete)}
           </b>{" "}
           de {toDelete?.proyecto} dejará de mostrarse. La puedes recuperar en "Todas".
         </p>
@@ -232,7 +241,7 @@ function EntregaCard({ e, onEdit, onDelete }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-ink">
-              {e.etapa || "—"} · {e.tipo} {e.nombre}
+              {e.etapa || "—"} · {unidadTxt(e)}
             </h3>
             <StatusChip estado={activo ? "Activo" : "Inactivo"} />
           </div>
@@ -389,7 +398,7 @@ function EntregaModal({ mode, data, proyectos, onClose, onSaved }) {
           hintTone="amber"
         >
           <Input
-            placeholder={tipo === "Torre" ? "Ej. Torre A" : "Ej. Privada 3"}
+            placeholder={tipo === "Torre" ? "Ej. A o Torre 1" : "Ej. 3 o Privada Norte"}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
