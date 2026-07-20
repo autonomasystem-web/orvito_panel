@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book } from "./Icons.jsx";
+import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
@@ -13,6 +13,7 @@ const NAV = [
   { to: "/materiales", label: "Materiales", short: "Materiales", icon: Folder },
   { to: "/promociones", label: "Promociones", short: "Promos", icon: Percent },
   { to: "/blogs", label: "Blogs", short: "Blogs", icon: Newspaper },
+  { to: "/entregas", label: "Entregas", short: "Entregas", icon: Calendar },
   { to: "/documentos", label: "Conocimiento", short: "Docs", icon: Book },
   { to: "/conversaciones", label: "Conversaciones", short: "Chats", icon: Chat },
   { to: "/resumenes", label: "Resúmenes IA", short: "Resúmenes", icon: Sparkles },

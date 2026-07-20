@@ -130,6 +130,21 @@ export async function eliminarBlog(Id) {
   return call("eliminar_blog", { Id });
 }
 
+/* ----------------- Entregas (fechas de entrega por proyecto) ----------------- */
+export async function listarEntregas() {
+  const r = await call("listar_entregas", {});
+  return Array.isArray(r.list) ? r.list : [];
+}
+export async function crearEntrega(data) {
+  return call("crear_entrega", data);
+}
+export async function editarEntrega(data) {
+  return call("editar_entrega", data);
+}
+export async function eliminarEntrega(Id) {
+  return call("eliminar_entrega", { Id });
+}
+
 /* ----------------- Conversaciones (proxy Chatwoot vía gateway) ----------------- */
 export async function listarConversaciones({ status = "all", page = 1 } = {}) {
   const r = await call("listar_conversaciones", { status, page });
