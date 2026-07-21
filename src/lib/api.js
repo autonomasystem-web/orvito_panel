@@ -145,6 +145,23 @@ export async function eliminarEntrega(Id) {
   return call("eliminar_entrega", { Id });
 }
 
+/* ----------------- Temas / Alcance de Orvito (solo admin) ----------------- */
+// Temas que Orvito reconoce y busca en el RAG. Editar aquí actualiza el alcance
+// del agente en vivo (se inyecta al system prompt). Escritura protegida en el gateway.
+export async function listarTemas() {
+  const r = await call("listar_temas", {});
+  return Array.isArray(r.list) ? r.list : [];
+}
+export async function crearTema(data) {
+  return call("crear_tema", data);
+}
+export async function editarTema(data) {
+  return call("editar_tema", data);
+}
+export async function eliminarTema(Id) {
+  return call("eliminar_tema", { Id });
+}
+
 /* ----------------- Conversaciones (proxy Chatwoot vía gateway) ----------------- */
 export async function listarConversaciones({ status = "all", page = 1 } = {}) {
   const r = await call("listar_conversaciones", { status, page });
