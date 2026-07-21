@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Blogs from "./pages/Blogs.jsx";
 import Documentos from "./pages/Documentos.jsx";
 import Entregas from "./pages/Entregas.jsx";
+import Temas from "./pages/Temas.jsx";
 import { Leaf } from "./components/Icons.jsx";
 
 function Splash() {
@@ -25,6 +26,14 @@ function Protected({ children }) {
   const { session, loading } = useAuth();
   if (loading) return <Splash />;
   if (!session) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { session, loading, isAdmin } = useAuth();
+  if (loading) return <Splash />;
+  if (!session) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -82,6 +91,14 @@ export default function App() {
           <Protected>
             <Entregas />
           </Protected>
+        }
+      />
+      <Route
+        path="/temas"
+        element={
+          <AdminRoute>
+            <Temas />
+          </AdminRoute>
         }
       />
       <Route

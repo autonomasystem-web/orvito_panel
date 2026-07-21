@@ -3,6 +3,14 @@ import { supabase } from "./supabase.js";
 
 const AuthCtx = createContext(null);
 
+// Correos con acceso admin (secciones sensibles como Temas / Alcance de Orvito).
+// El candado REAL también está en el gateway; esto es solo la capa de UI.
+const ADMIN_EMAILS = [
+  "emilianotkpa@gmail.com",
+  "fernanda.montero@grupoorve.mx",
+  "jesus.sotres@grupoorve.mx",
+];
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +30,14 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     loading,
+    isAdmin: ADMIN_EMAILS.includes((session?.user?.email || "").toLowerCase()),
+    // Verifica la contraseña del usuario actual (confirmación de acciones sensibles).
+    async verifyPassword(password) {
+      const email = session?.user?.email;
+      if (!email) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error("Contraseña incorrecta.");
+    },
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
