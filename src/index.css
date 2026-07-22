@@ -83,22 +83,22 @@
 }
 
 /* ---------------- Markdown renderizado (Base de conocimiento) ---------------- */
-.md-body{ color:#12271a; font-size:14px; line-height:1.65; }
-.md-body h1{ font-family:'Mulish',sans-serif; font-weight:800; font-size:1.6em; color:#064F00; margin:.4em 0 .5em; }
-.md-body h2{ font-weight:800; font-size:1.25em; color:#064F00; margin:1.2em 0 .4em; padding-bottom:.2em; border-bottom:1px solid #dde8dc; }
+.md-body{ color:#282828; font-size:14px; line-height:1.65; }
+.md-body h1{ font-family:'Avenir','Nunito Sans',sans-serif; font-weight:800; font-size:1.6em; color:#064F00; margin:.4em 0 .5em; }
+.md-body h2{ font-weight:800; font-size:1.25em; color:#064F00; margin:1.2em 0 .4em; padding-bottom:.2em; border-bottom:1px solid #E6E7E6; }
 .md-body h3{ font-weight:700; font-size:1.08em; color:#108707; margin:1em 0 .3em; }
 .md-body p{ margin:.5em 0; }
 .md-body a{ color:#108707; text-decoration:underline; }
 .md-body ul,.md-body ol{ margin:.5em 0 .5em 1.4em; }
 .md-body li{ margin:.2em 0; }
 .md-body code{ background:#EAF9E8; color:#064F00; padding:1px 5px; border-radius:5px; font-size:.9em; }
-.md-body pre{ background:#f2f8f1; padding:12px 14px; border-radius:10px; overflow-x:auto; border:1px solid #dde8dc; }
+.md-body pre{ background:#f2f8f1; padding:12px 14px; border-radius:10px; overflow-x:auto; border:1px solid #E6E7E6; }
 .md-body pre code{ background:none; padding:0; }
-.md-body blockquote{ border-left:3px solid #83BC4A; padding-left:12px; color:#5c6b60; margin:.6em 0; }
+.md-body blockquote{ border-left:3px solid #83BC4A; padding-left:12px; color:#636363; margin:.6em 0; }
 .md-body table{ border-collapse:collapse; margin:.6em 0; font-size:.92em; }
-.md-body th,.md-body td{ border:1px solid #dde8dc; padding:6px 10px; text-align:left; }
+.md-body th,.md-body td{ border:1px solid #E6E7E6; padding:6px 10px; text-align:left; }
 .md-body th{ background:#EAF9E8; color:#064F00; }
-.md-body hr{ border:none; border-top:1px solid #dde8dc; margin:1em 0; }
+.md-body hr{ border:none; border-top:1px solid #E6E7E6; margin:1em 0; }
 .md-body strong{ color:#064F00; }
 
 @media (prefers-reduced-motion: reduce) {

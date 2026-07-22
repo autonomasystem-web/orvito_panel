@@ -16,19 +16,22 @@ export default {
           lime: "#83BC4A", // badges suaves / series de gráficas
           tint: "#EAF9E8", // hovers y zonas destacadas
         },
-        ink: "#12271a",
-        muted: "#5c6b60",
-        muted2: "#93a396",
-        line: "#dde8dc",
-        canvas: "#F4F7F5", // fondo de la app (oficial)
+        // Neutros oficiales del Manual de Marca ORVE 2026
+        ink: "#282828", // texto principal (oficial)
+        muted: "#636363", // texto secundario (oficial)
+        muted2: "#9A9B9A", // texto terciario / placeholders (oficial)
+        line: "#E6E7E6", // bordes (oficial)
+        canvas: "#F7F8F7", // fondo de la app (oficial)
         soft: "#EAF9E8", // verde claro (chips/banners) = tint oficial
         softer: "#f2f8f1",
         danger: "#b4554e",
         amber: "#a6772a",
       },
       fontFamily: {
-        sans: ["Mulish", "system-ui", "sans-serif"],
-        display: ["Mulish", "system-ui", "sans-serif"],
+        // "Avenir" primero (cuando haya licencia toma el control); mientras,
+        // "Nunito Sans" (gratis, muy cercana a Avenir).
+        sans: ["Avenir", "Nunito Sans", "system-ui", "sans-serif"],
+        display: ["Avenir", "Nunito Sans", "system-ui", "sans-serif"],
       },
       boxShadow: {
         card: "0 1px 2px rgba(16,46,34,0.04), 0 4px 16px rgba(16,46,34,0.05)",
