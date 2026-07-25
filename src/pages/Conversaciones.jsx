@@ -29,6 +29,11 @@ const FILTROS = [
   { value: "open", label: "Con agente" },
   { value: "resolved", label: "Resueltas" },
 ];
+const TIPOS = [
+  { value: "todos", label: "Todos" },
+  { value: "interno", label: "Asesores / internos" },
+  { value: "cliente", label: "Clientes" },
+];
 const ESTADO = {
   pending: { label: "Con Orvito", cls: "bg-soft text-brand-dark", dot: "bg-brand-leaf" },
   open: { label: "Con agente", cls: "bg-brand-green/10 text-brand-green", dot: "bg-brand-green" },
@@ -38,6 +43,7 @@ const ESTADO = {
 export default function Conversaciones() {
   const toast = useToast();
   const [filtro, setFiltro] = useState("all");
+  const [tipoFiltro, setTipoFiltro] = useState("todos"); // todos | interno | cliente
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading");
   const [pagina, setPagina] = useState(1);
@@ -46,6 +52,9 @@ export default function Conversaciones() {
   const [sel, setSel] = useState(null); // id seleccionado
   const [mobileDetail, setMobileDetail] = useState(false);
   const [searchParams] = useSearchParams();
+
+  const itemsVisibles =
+    tipoFiltro === "todos" ? items : items.filter((c) => (c.tipo || "cliente") === tipoFiltro);
 
   // Abrir una conversación desde ?conv=ID (viene de Resúmenes IA)
   useEffect(() => {
@@ -126,8 +135,8 @@ export default function Conversaciones() {
         subtitle="Los chats de WhatsApp que atiende Orvito."
       />
 
-      {/* filtros */}
-      <div className="mb-5 flex flex-wrap gap-2">
+      {/* filtros por estado */}
+      <div className="mb-3 flex flex-wrap gap-2">
         {FILTROS.map((f) => (
           <button
             key={f.value}
@@ -140,6 +149,24 @@ export default function Conversaciones() {
             )}
           >
             {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* filtro interno vs cliente (según el CRM) */}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {TIPOS.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTipoFiltro(t.value)}
+            className={cx(
+              "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+              tipoFiltro === t.value
+                ? "bg-brand-green/15 text-brand-green ring-1 ring-brand-green/30"
+                : "border border-line bg-white text-muted2 hover:text-ink"
+            )}
+          >
+            {t.label}
           </button>
         ))}
       </div>
@@ -166,17 +193,21 @@ export default function Conversaciones() {
             />
           )}
 
-          {status === "ready" && items.length === 0 && (
+          {status === "ready" && itemsVisibles.length === 0 && (
             <EmptyState
               icon={<Chat size={22} />}
               title="Sin conversaciones"
-              text="Cuando los asesores le escriban a Orvito, las verás aquí."
+              text={
+                tipoFiltro === "todos"
+                  ? "Cuando le escriban a Orvito, las verás aquí."
+                  : `No hay conversaciones de ${tipoFiltro === "interno" ? "asesores/internos" : "clientes"} en este filtro.`
+              }
             />
           )}
 
-          {status === "ready" && items.length > 0 && (
+          {status === "ready" && itemsVisibles.length > 0 && (
             <div className="seq space-y-2.5">
-              {items.map((c) => (
+              {itemsVisibles.map((c) => (
                 <ConvItem key={c.id} c={c} active={sel === c.id} onClick={() => abrir(c.id)} />
               ))}
               {hayMas && (
@@ -219,6 +250,26 @@ export default function Conversaciones() {
 }
 
 /* ---------- item de lista ---------- */
+/** Etiqueta interno (con su rol del CRM) vs cliente. */
+function TipoBadge({ tipo, rol, size = "sm" }) {
+  const esInterno = tipo === "interno";
+  const pad = size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[10px]";
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center gap-1 rounded-full font-semibold",
+        pad,
+        esInterno ? "bg-brand-green/10 text-brand-green" : "bg-line text-muted",
+      )}
+    >
+      <span
+        className={cx("h-1.5 w-1.5 rounded-full", esInterno ? "bg-brand-green" : "bg-muted2")}
+      />
+      {esInterno ? rol || "Asesor ORVE" : "Cliente"}
+    </span>
+  );
+}
+
 function ConvItem({ c, active, onClick }) {
   const porOrvito = !c.atendida_por;
   return (
@@ -230,8 +281,11 @@ function ConvItem({ c, active, onClick }) {
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-semibold text-ink">{c.contacto}</span>
+        <span className="truncate font-semibold text-ink">{c.nombre_mostrar || c.contacto}</span>
         <span className="shrink-0 text-[11px] text-muted2">{fmtRelativo(c.ultima_actividad)}</span>
+      </div>
+      <div className="mt-0.5">
+        <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
       </div>
       {c.ultimo_mensaje && (
         <p className="mt-1 truncate text-sm text-muted">{stripFormato(c.ultimo_mensaje)}</p>
@@ -358,8 +412,15 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
           ←
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-ink">{conv?.contacto || "…"}</p>
-          {conv?.telefono && <p className="truncate text-xs text-muted">{conv.telefono}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-semibold text-ink">
+              {conv?.nombre_mostrar || conv?.contacto || "…"}
+            </p>
+            {conv && <TipoBadge tipo={conv.tipo} rol={conv.crm_rol} />}
+          </div>
+          <p className="truncate text-xs text-muted">
+            {[conv?.crm_sucursal, conv?.telefono].filter(Boolean).join(" · ")}
+          </p>
         </div>
         {conv && (
           <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", est.cls)}>
