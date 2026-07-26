@@ -47,6 +47,14 @@ export const Sparkles = ({ size }) => (
     <path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5Z" />
   </svg>
 );
+export const Bars = ({ size }) => (
+  <svg {...base(size)}>
+    <line x1="3" y1="20" x2="21" y2="20" />
+    <rect x="5" y="12" width="3.4" height="6" rx="1" />
+    <rect x="10.3" y="8" width="3.4" height="10" rx="1" />
+    <rect x="15.6" y="4" width="3.4" height="14" rx="1" />
+  </svg>
+);
 export const Logout = ({ size }) => (
   <svg {...base(size)}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

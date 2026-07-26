@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain } from "./Icons.jsx";
+import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain, Bars } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
@@ -16,6 +16,7 @@ const NAV = [
   { to: "/entregas", label: "Entregas", short: "Entregas", icon: Calendar },
   { to: "/documentos", label: "Conocimiento", short: "Docs", icon: Book },
   { to: "/temas", label: "Temas / Alcance", short: "Temas", icon: Brain, adminOnly: true },
+  { to: "/esfuerzos", label: "Adopción E1–E5", short: "Esfuerzos", icon: Bars, adminOnly: true },
   { to: "/conversaciones", label: "Conversaciones", short: "Chats", icon: Chat },
   { to: "/resumenes", label: "Resúmenes IA", short: "Resúmenes", icon: Sparkles },
 ];
