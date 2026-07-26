@@ -110,7 +110,7 @@ export default function Materiales() {
       {status === "loading" && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Card key={i} className="space-y-4 p-5">
+            <Card key={i} className="space-y-4 p-4 md:p-5">
               <Skeleton className="h-5 w-2/3" />
               <Skeleton className="h-6 w-20 rounded-full" />
               <Skeleton className="h-10 w-full" />
@@ -197,7 +197,7 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
   const [menu, setMenu] = useState(false);
   const activo = truthy(b.activo);
   return (
-    <Card className="relative flex flex-col gap-3 p-5">
+    <Card className="relative flex flex-col gap-3 p-4 md:p-5">
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-semibold text-ink">{b.proyecto}</h3>
         <div className="relative">

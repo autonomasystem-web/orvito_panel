@@ -98,7 +98,7 @@ export default function Promociones() {
       {status === "loading" && (
         <div className="space-y-4">
           {[0, 1, 2].map((i) => (
-            <Card key={i} className="space-y-3 p-6">
+            <Card key={i} className="space-y-3 p-4 md:p-6">
               <Skeleton className="h-5 w-1/2" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-6 w-24 rounded-full" />
@@ -210,7 +210,7 @@ function PromoCard({ p, onEdit, onDelete, dimmed }) {
     .map((s) => s.trim())
     .filter(Boolean);
   return (
-    <Card className={cx("p-6", dimmed && "opacity-70")}>
+    <Card className={cx("p-4 md:p-6", dimmed && "opacity-70")}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-2">
           <h3 className="text-lg font-semibold text-ink">{p.titulo}</h3>

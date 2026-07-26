@@ -333,7 +333,7 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
 
       {/* cuerpo */}
       {status === "loading" && (
-        <div className="flex-1 space-y-3 p-5">
+        <div className="flex-1 space-y-3 p-4 md:p-5">
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-4 w-5/6" />
           <Skeleton className="h-4 w-2/3" />
@@ -341,7 +341,7 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
         </div>
       )}
       {status === "error" && (
-        <div className="flex-1 p-5">
+        <div className="flex-1 p-4 md:p-5">
           <ErrorState title="No pudimos abrir el documento" onRetry={() => setStatus("ready")} />
         </div>
       )}

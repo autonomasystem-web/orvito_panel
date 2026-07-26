@@ -221,7 +221,7 @@ function KpiCard({ label, value, suffix, sub, icon, hero, dot }) {
   return (
     <Card
       className={cx(
-        "flex flex-col gap-1.5 p-5",
+        "flex flex-col gap-1.5 p-4 md:p-5",
         hero && "border-brand-leaf/30 bg-gradient-to-br from-soft to-white"
       )}
     >
@@ -247,7 +247,7 @@ function KpiCard({ label, value, suffix, sub, icon, hero, dot }) {
 function SerieDiaria({ serie }) {
   const hayHandoff = serie.some((d) => d.con_handoff > 0);
   return (
-    <Card className="p-5">
+    <Card className="p-4 md:p-5">
       <SectionTitle title="Conversaciones por día" hint="Volumen diario que Orvito atendió." />
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -346,7 +346,7 @@ function Legend({ color, dashed, children }) {
 function ProyectosTop({ items }) {
   if (!items.length) {
     return (
-      <Card className="p-5">
+      <Card className="p-4 md:p-5">
         <SectionTitle title="Proyectos más consultados" hint="Lo que más piden los asesores." />
         <MiniEmpty text="Aún no hay consultas por proyecto en este periodo." />
       </Card>
@@ -354,7 +354,7 @@ function ProyectosTop({ items }) {
   }
   const data = items.map((x) => ({ name: x.proyecto, value: x.consultas }));
   return (
-    <Card className="p-5">
+    <Card className="p-4 md:p-5">
       <SectionTitle title="Proyectos más consultados" hint="Lo que más piden los asesores." />
       <div className="w-full" style={{ height: Math.max(180, data.length * 40) }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -386,7 +386,7 @@ function ProyectosTop({ items }) {
 function Categorias({ items }) {
   if (!items.length) {
     return (
-      <Card className="p-5">
+      <Card className="p-4 md:p-5">
         <SectionTitle title="Qué piden los asesores" hint="Tipo de consulta más frecuente." />
         <MiniEmpty text="Aún no hay resúmenes para clasificar en este periodo." />
       </Card>
@@ -395,7 +395,7 @@ function Categorias({ items }) {
   const data = items.map((x, i) => ({ name: catLabel(x.categoria), value: x.total, color: PIE[i % PIE.length] }));
   const total = data.reduce((a, b) => a + b.value, 0);
   return (
-    <Card className="p-5">
+    <Card className="p-4 md:p-5">
       <SectionTitle title="Qué piden los asesores" hint="Tipo de consulta más frecuente." />
       <div className="flex flex-col items-center gap-4 sm:flex-row">
         <div className="h-48 w-48 shrink-0">
@@ -444,7 +444,7 @@ function HorasPico({ horas }) {
   const top3 = [...horas].sort((a, b) => b.conversaciones - a.conversaciones).slice(0, 3).map((h) => h.hora);
   const data = horas.map((h) => ({ ...h, etiqueta: `${String(h.hora).padStart(2, "0")}h` }));
   return (
-    <Card className="p-5">
+    <Card className="p-4 md:p-5">
       <SectionTitle title="Horas pico" hint="Cuándo escriben más los asesores (hora de Mérida)." />
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -496,20 +496,20 @@ function DashboardSkeleton() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Card key={i} className="space-y-3 p-5">
+          <Card key={i} className="space-y-3 p-4 md:p-5">
             <Skeleton className="h-3 w-1/2" />
             <Skeleton className="h-8 w-2/3" />
             <Skeleton className="h-3 w-1/3" />
           </Card>
         ))}
       </div>
-      <Card className="p-5">
+      <Card className="p-4 md:p-5">
         <Skeleton className="mb-4 h-5 w-52" />
         <Skeleton className="h-64 w-full" />
       </Card>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {[0, 1].map((i) => (
-          <Card key={i} className="p-5">
+          <Card key={i} className="p-4 md:p-5">
             <Skeleton className="mb-4 h-5 w-40" />
             <Skeleton className="h-48 w-full" />
           </Card>
