@@ -10,6 +10,7 @@ import Blogs from "./pages/Blogs.jsx";
 import Documentos from "./pages/Documentos.jsx";
 import Entregas from "./pages/Entregas.jsx";
 import Temas from "./pages/Temas.jsx";
+import Esfuerzos from "./pages/Esfuerzos.jsx";
 import { Leaf } from "./components/Icons.jsx";
 
 function Splash() {
@@ -98,6 +99,14 @@ export default function App() {
         element={
           <AdminRoute>
             <Temas />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/esfuerzos"
+        element={
+          <AdminRoute>
+            <Esfuerzos />
           </AdminRoute>
         }
       />

@@ -255,7 +255,19 @@ export async function dashboardMetricas(rango = "7d") {
     proyectos_top: Array.isArray(r.proyectos_top) ? r.proyectos_top : [],
     categorias: Array.isArray(r.categorias) ? r.categorias : [],
     horas_pico: Array.isArray(r.horas_pico) ? r.horas_pico : [],
+    gaps: Array.isArray(r.gaps) ? r.gaps : [],
+    esfuerzos: Array.isArray(r.esfuerzos) ? r.esfuerzos : [],
     config: r.config || { materiales_activos: 0, promos_vigentes: 0 },
     parcial: Boolean(r.parcial),
   };
+}
+
+/* ----------------- Adopción por esfuerzo (E1–E5, editable — admin) ----------------- */
+export async function listarEsfuerzos() {
+  const r = await call("listar_esfuerzos", {});
+  return Array.isArray(r.esfuerzos) ? r.esfuerzos : [];
+}
+export async function guardarEsfuerzos(items) {
+  const r = await call("guardar_esfuerzos", { items });
+  return Array.isArray(r.esfuerzos) ? r.esfuerzos : [];
 }

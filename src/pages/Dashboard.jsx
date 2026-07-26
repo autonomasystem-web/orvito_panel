@@ -14,10 +14,12 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+import { Link } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import { Card, Skeleton, EmptyState, ErrorState, cx } from "../components/ui.jsx";
 import { Sparkles, Chat, Folder, Percent } from "../components/Icons.jsx";
 import { dashboardMetricas } from "../lib/api.js";
+import { useAuth } from "../lib/auth.jsx";
 import { catLabel } from "./Resumenes.jsx";
 
 /* Paleta ORVE para SVG (Recharts no acepta clases de Tailwind) */
@@ -60,6 +62,7 @@ const RANGOS = [
 ];
 
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
   const [rango, setRango] = useState("7d");
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -173,9 +176,9 @@ export default function Dashboard() {
             <GroupHeader
               eyebrow="Madurez"
               title="Adopción por esfuerzo"
-              hint="Avance de Orvito por bloque de trabajo (evaluación estratégica, se ajusta manualmente)."
+              hint="Avance de Orvito por bloque de trabajo (evaluación estratégica)."
             />
-            <AdopcionEsfuerzo />
+            <AdopcionEsfuerzo items={data.esfuerzos} canEdit={isAdmin} />
           </section>
 
           {/* ============ DETALLE DE ACTIVIDAD ============ */}
@@ -468,36 +471,50 @@ const ESTADO_STYLE = {
   Parcial: "bg-amber/10 text-amber",
   "Fase futura": "bg-softer text-muted2",
 };
-function AdopcionEsfuerzo() {
+function AdopcionEsfuerzo({ items, canEdit }) {
+  const lista = items && items.length ? items : ESFUERZOS;
   return (
     <Card className="p-4 md:p-5">
+      {canEdit && (
+        <div className="mb-3 flex justify-end">
+          <Link
+            to="/esfuerzos"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-brand-leaf/40 hover:text-brand-dark"
+          >
+            <Sparkles size={14} /> Editar valores
+          </Link>
+        </div>
+      )}
       <ul className="space-y-4">
-        {ESFUERZOS.map((e) => (
-          <li key={e.id} className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-display text-sm font-bold text-brand-dark">{e.id}</span>
-              <span className="text-sm text-ink">{e.nombre}</span>
-              <span
-                className={cx(
-                  "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                  ESTADO_STYLE[e.estado] || "bg-softer text-muted2"
-                )}
-              >
-                {e.estado}
-              </span>
-              <span className="ml-auto font-display text-sm font-bold text-brand-dark">{e.pct}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-softer">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${e.pct}%`,
-                  background: e.estado === "Fase futura" ? C.muted : e.estado === "Parcial" ? C.amber : C.leaf,
-                }}
-              />
-            </div>
-          </li>
-        ))}
+        {lista.map((e, i) => {
+          const codigo = e.codigo || e.id || `E${i + 1}`;
+          return (
+            <li key={codigo} className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-display text-sm font-bold text-brand-dark">{codigo}</span>
+                <span className="text-sm text-ink">{e.nombre}</span>
+                <span
+                  className={cx(
+                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    ESTADO_STYLE[e.estado] || "bg-softer text-muted2"
+                  )}
+                >
+                  {e.estado}
+                </span>
+                <span className="ml-auto font-display text-sm font-bold text-brand-dark">{e.pct}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-softer">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, e.pct))}%`,
+                    background: e.estado === "Fase futura" ? C.muted : e.estado === "Parcial" ? C.amber : C.leaf,
+                  }}
+                />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </Card>
   );
