@@ -103,7 +103,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-brand-dark">{saludo()}</h1>
+          <h1 className="font-display text-2xl font-bold text-brand-dark md:text-3xl">{saludo()}</h1>
           <p className="mt-1 text-muted">
             Un vistazo a lo que Orvito está haciendo por tu equipo.
           </p>
