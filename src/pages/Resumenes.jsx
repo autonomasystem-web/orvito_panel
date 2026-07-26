@@ -113,7 +113,7 @@ export default function Resumenes() {
       {status === "loading" && (
         <div className="space-y-3">
           {[0, 1, 2, 3].map((i) => (
-            <Card key={i} className="space-y-2 p-5">
+            <Card key={i} className="space-y-2 p-4 md:p-5">
               <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-2/3" />
@@ -170,7 +170,7 @@ function ResumenCard({ r, onVer }) {
     .map((s) => s.trim())
     .filter(Boolean);
   return (
-    <Card className="p-5">
+    <Card className="p-4 md:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">

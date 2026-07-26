@@ -98,7 +98,7 @@ export default function Blogs() {
       {status === "loading" && (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
-            <Card key={i} className="space-y-3 p-5">
+            <Card key={i} className="space-y-3 p-4 md:p-5">
               <Skeleton className="h-5 w-2/3" />
               <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-9 w-full" />
@@ -187,7 +187,7 @@ function BlogCard({ b, esReciente, onEdit, onDelete }) {
     } catch {}
   };
   return (
-    <Card className={cx("p-5", esReciente && "border-brand-leaf/40 ring-1 ring-brand-leaf/20")}>
+    <Card className={cx("p-4 md:p-5", esReciente && "border-brand-leaf/40 ring-1 ring-brand-leaf/20")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

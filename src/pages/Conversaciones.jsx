@@ -402,58 +402,64 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
       ref={cardRef}
       className="flex h-[75vh] min-h-[420px] max-h-[calc(100vh-72px)] flex-col overflow-hidden md:h-[calc(100vh-7rem)] md:resize-y"
     >
-      {/* header */}
-      <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-        <button
-          onClick={onBack}
-          className="rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
-          aria-label="Volver"
-        >
-          ←
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold text-ink">
-              {conv?.nombre_mostrar || conv?.contacto || "…"}
-            </p>
-            {conv && <TipoBadge tipo={conv.tipo} rol={conv.crm_rol} />}
-          </div>
-          <p className="truncate text-xs text-muted">
-            {[conv?.crm_sucursal, conv?.telefono].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-        {conv && (
-          <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", est.cls)}>
-            <span className={cx("h-1.5 w-1.5 rounded-full", est.dot)} />
-            {est.label}
-          </span>
-        )}
-        {conv?.status === "open" && (
-          <Button size="sm" onClick={() => setConfirmDevolver(true)} disabled={cambiando}>
-            Devolver a Orvito
-          </Button>
-        )}
-        {conv?.status === "pending" && (
-          <Button size="sm" variant="outline" onClick={() => cambiarEstado("resolved")} disabled={cambiando}>
-            Marcar resuelta
-          </Button>
-        )}
-        {conv?.status === "resolved" && (
-          <Button size="sm" variant="outline" onClick={() => cambiarEstado("open")} disabled={cambiando}>
-            Reabrir
-          </Button>
-        )}
-        {conv && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={resumir}
-            disabled={resumiendo}
-            title="Generar resumen IA de esta conversación"
+      {/* header: en móvil se apila (identidad arriba, acciones abajo); en desktop, una fila */}
+      <div className="flex flex-col gap-2 border-b border-line px-4 py-3 md:flex-row md:items-center md:gap-3">
+        <div className="flex min-w-0 items-start gap-2 md:flex-1">
+          <button
+            onClick={onBack}
+            className="-ml-1 mt-0.5 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
+            aria-label="Volver"
           >
-            <Sparkles size={16} /> {resumiendo ? "Resumiendo…" : "Resumir"}
-          </Button>
-        )}
+            ←
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <p className="truncate font-semibold text-ink">
+                {conv?.nombre_mostrar || conv?.contacto || "…"}
+              </p>
+              {conv && <TipoBadge tipo={conv.tipo} rol={conv.crm_rol} />}
+            </div>
+            <p className="truncate text-xs text-muted">
+              {[conv?.crm_sucursal, conv?.telefono].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 self-end md:self-auto">
+          {conv && (
+            <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", est.cls)}>
+              <span className={cx("h-1.5 w-1.5 rounded-full", est.dot)} />
+              {est.label}
+            </span>
+          )}
+          {conv?.status === "open" && (
+            <Button size="sm" onClick={() => setConfirmDevolver(true)} disabled={cambiando}>
+              Devolver
+            </Button>
+          )}
+          {conv?.status === "pending" && (
+            <Button size="sm" variant="outline" onClick={() => cambiarEstado("resolved")} disabled={cambiando}>
+              Resolver
+            </Button>
+          )}
+          {conv?.status === "resolved" && (
+            <Button size="sm" variant="outline" onClick={() => cambiarEstado("open")} disabled={cambiando}>
+              Reabrir
+            </Button>
+          )}
+          {conv && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={resumir}
+              disabled={resumiendo}
+              title="Generar resumen IA de esta conversación"
+              aria-label="Resumen IA"
+            >
+              <Sparkles size={18} className={resumiendo ? "animate-pulse" : ""} />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* resumen IA (colapsable) */}
