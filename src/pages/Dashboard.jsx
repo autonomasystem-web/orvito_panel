@@ -105,7 +105,7 @@ export default function Dashboard() {
         <div>
           <h1 className="font-display text-2xl font-bold text-brand-dark md:text-3xl">{saludo()}</h1>
           <p className="mt-1 text-muted">
-            Un vistazo a lo que Orvito está haciendo por tu equipo.
+            Cómo va Orvito: qué tan bien funciona y qué mueve en el negocio.
           </p>
         </div>
         <div className="inline-flex rounded-xl border border-line bg-white p-1">
@@ -135,23 +135,62 @@ export default function Dashboard() {
       {status === "loading" && <DashboardSkeleton />}
 
       {status === "ready" && data && (
-        <div className={cx("seq space-y-6 transition-opacity", refetching && "opacity-60")}>
+        <div className={cx("seq space-y-10 transition-opacity", refetching && "opacity-60")}>
           {data.parcial && (
             <div className="rounded-xl border border-amber/25 bg-amber/5 px-4 py-3 text-sm text-amber">
               Algunas métricas no están disponibles en este momento. Mostramos lo que sí pudimos calcular.
             </div>
           )}
 
-          <KpiRow k={data.kpis} config={data.config} />
+          {/* ============ OPERACIÓN ============ */}
+          <section className="space-y-4">
+            <GroupHeader
+              eyebrow="Operación"
+              title="¿La herramienta funciona bien?"
+              hint="Salud del sistema en el periodo."
+            />
+            <KpiOperacion k={data.kpis} config={data.config} />
+            <SerieDiaria serie={data.serie_diaria} />
+          </section>
 
-          <SerieDiaria serie={data.serie_diaria} />
+          {/* ============ ESTRATÉGICO ============ */}
+          <section className="space-y-4">
+            <GroupHeader
+              eyebrow="Estratégico"
+              title="¿Mueve el negocio?"
+              hint="Valor real para el equipo comercial."
+            />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ResolucionCard k={data.kpis} />
+              <AdopcionCard k={data.kpis} />
+            </div>
+            <GapsConocimiento gaps={data.gaps} />
+            <ProximamenteNota />
+          </section>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <ProyectosTop items={data.proyectos_top} />
-            <Categorias items={data.categorias} />
-          </div>
+          {/* ============ ADOPCIÓN POR ESFUERZO ============ */}
+          <section className="space-y-4">
+            <GroupHeader
+              eyebrow="Madurez"
+              title="Adopción por esfuerzo"
+              hint="Avance de Orvito por bloque de trabajo (evaluación estratégica, se ajusta manualmente)."
+            />
+            <AdopcionEsfuerzo />
+          </section>
 
-          <HorasPico horas={data.horas_pico} />
+          {/* ============ DETALLE DE ACTIVIDAD ============ */}
+          <section className="space-y-4">
+            <GroupHeader
+              eyebrow="Detalle"
+              title="Actividad por proyecto y tipo"
+              hint="El volumen detrás de los números de arriba."
+            />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <ProyectosTop items={data.proyectos_top} />
+              <Categorias items={data.categorias} />
+            </div>
+            <HorasPico horas={data.horas_pico} />
+          </section>
 
           <p className="pt-2 text-center text-xs text-muted2">
             {diaLargo(data.periodo.desde)} — {diaLargo(data.periodo.hasta)} · Actualiza solo cada 5 min
@@ -159,6 +198,19 @@ export default function Dashboard() {
         </div>
       )}
     </Layout>
+  );
+}
+
+/* ---------------- Encabezado de sección ---------------- */
+function GroupHeader({ eyebrow, title, hint }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-2">
+      <span className="rounded-full bg-soft px-2.5 py-0.5 font-display text-[11px] font-bold uppercase tracking-wide text-brand-green">
+        {eyebrow}
+      </span>
+      <h2 className="font-display text-xl font-bold text-brand-dark">{title}</h2>
+      {hint && <p className="w-full text-sm text-muted md:ml-auto md:w-auto md:text-right">{hint}</p>}
+    </div>
   );
 }
 
@@ -200,24 +252,70 @@ function CountUp({ value, suffix = "" }) {
   );
 }
 
-function KpiRow({ k, config }) {
+// Pill de tendencia vs periodo anterior. positivo→verde, negativo→ámbar.
+function Trend({ value, suffix = "", invert = false }) {
+  if (value == null) return null;
+  const flat = value === 0;
+  const bueno = invert ? value < 0 : value > 0;
+  const cls = flat
+    ? "text-muted2 bg-softer"
+    : bueno
+    ? "text-brand-green bg-soft"
+    : "text-amber bg-amber/10";
+  const arrow = flat ? "→" : value > 0 ? "↑" : "↓";
+  return (
+    <span className={cx("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold", cls)}>
+      {arrow}
+      {Math.abs(value)}
+      {suffix}
+    </span>
+  );
+}
+
+function KpiOperacion({ k, config }) {
   const cards = [
-    { label: "Conversaciones", value: k.conversaciones_totales ?? 0, sub: "en el periodo", icon: <Chat size={18} /> },
-    { label: "Atendido por Orvito", value: k.porcentaje_bot ?? 0, suffix: "%", sub: "sin intervención humana", icon: <Sparkles size={18} />, hero: true },
-    { label: "Asesores únicos", value: k.asesores_unicos ?? 0, sub: "escribieron a Orvito", icon: <Chat size={18} /> },
-    { label: "Con un agente", value: k.abiertas_ahora ?? 0, sub: "ahora mismo", dot: (k.abiertas_ahora ?? 0) > 0 },
-    { label: "Materiales activos", value: config.materiales_activos ?? 0, sub: "listos para compartir", icon: <Folder size={18} /> },
-    { label: "Promos vigentes", value: config.promos_vigentes ?? 0, sub: "en curso", icon: <Percent size={18} /> },
+    {
+      label: "Conversaciones",
+      value: k.conversaciones_totales ?? 0,
+      sub: "en el periodo",
+      icon: <Chat size={18} />,
+      delta: k.conversaciones_delta_pct != null ? { value: k.conversaciones_delta_pct, suffix: "%" } : null,
+    },
+    {
+      label: "Escaladas a un asesor",
+      value: k.escaladas ?? 0,
+      sub: "pasaron a un humano",
+      icon: <Chat size={18} />,
+    },
+    {
+      label: "Con un agente",
+      value: k.abiertas_ahora ?? 0,
+      sub: "ahora mismo",
+      dot: (k.abiertas_ahora ?? 0) > 0,
+    },
+    {
+      label: "Materiales activos",
+      value: config.materiales_activos ?? 0,
+      sub: "listos para compartir",
+      icon: <Folder size={18} />,
+    },
+    {
+      label: "Promos vigentes",
+      value: config.promos_vigentes ?? 0,
+      sub: "en curso",
+      icon: <Percent size={18} />,
+    },
   ];
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
       {cards.map((c, i) => (
         <KpiCard key={i} {...c} />
       ))}
     </div>
   );
 }
-function KpiCard({ label, value, suffix, sub, icon, hero, dot }) {
+
+function KpiCard({ label, value, suffix, sub, icon, hero, dot, delta }) {
   return (
     <Card
       className={cx(
@@ -238,20 +336,185 @@ function KpiCard({ label, value, suffix, sub, icon, hero, dot }) {
       >
         <CountUp value={value} suffix={suffix} />
       </div>
-      <span className="text-xs text-muted2">{sub}</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {delta && <Trend value={delta.value} suffix={delta.suffix} invert={delta.invert} />}
+        <span className="text-xs text-muted2">{sub}</span>
+      </div>
+    </Card>
+  );
+}
+
+/* ---------------- Estratégico: Resolución sin escalar (hero) ---------------- */
+function ResolucionCard({ k }) {
+  const pct = k.porcentaje_bot ?? 0;
+  const delta = k.resolucion_delta_pts;
+  return (
+    <Card className="flex flex-col gap-2 border-brand-leaf/30 bg-gradient-to-br from-soft to-white p-5 md:p-6">
+      <div className="flex items-center gap-2 text-brand-leaf">
+        <Sparkles size={18} />
+        <span className="text-xs font-medium text-muted">Resolución sin escalar</span>
+      </div>
+      <div className="font-display text-5xl font-bold leading-none text-brand-green">
+        <CountUp value={pct} suffix="%" />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {delta != null && <Trend value={delta} suffix=" pts" />}
+        <span className="text-xs text-muted2">Orvito resolvió sin pasar a un asesor</span>
+      </div>
+    </Card>
+  );
+}
+
+/* ---------------- Estratégico: Adopción real ---------------- */
+function AdopcionCard({ k }) {
+  const activos = k.asesores_unicos ?? 0;
+  const total = k.total_asesores_acceso; // null hasta que negocio lo defina
+  const pct = total ? Math.round((activos / total) * 100) : null;
+  return (
+    <Card className="flex flex-col gap-2 p-5 md:p-6">
+      <div className="flex items-center gap-2 text-muted2">
+        <Chat size={18} />
+        <span className="text-xs font-medium text-muted">Adopción real</span>
+      </div>
+      {pct != null ? (
+        <>
+          <div className="font-display text-5xl font-bold leading-none text-brand-dark">
+            <CountUp value={pct} suffix="%" />
+          </div>
+          <span className="text-xs text-muted2">
+            {activos} de {total} asesores con acceso escribieron a Orvito
+          </span>
+        </>
+      ) : (
+        <>
+          <div className="font-display text-5xl font-bold leading-none text-brand-dark">
+            <CountUp value={activos} />
+          </div>
+          <span className="text-xs text-muted2">personas únicas escribieron a Orvito</span>
+          <p className="mt-1 rounded-lg bg-softer px-2.5 py-1.5 text-[11px] leading-snug text-muted">
+            Para ver el <b>% de adopción</b>, falta definir cuántos asesores tienen acceso (pendiente con el equipo).
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* ---------------- Estratégico: Gaps de conocimiento ---------------- */
+function GapsConocimiento({ gaps }) {
+  const items = gaps || [];
+  const max = items.reduce((m, g) => Math.max(m, g.consultas), 0) || 1;
+  return (
+    <Card className="p-4 md:p-5">
+      <SectionTitle
+        title="Gaps de conocimiento"
+        hint="Temas que más terminan con un asesor — dónde reforzar a Orvito."
+      />
+      {!items.length ? (
+        <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-line bg-softer/60 px-4 text-center text-sm text-muted2">
+          Ninguna consulta se escaló a un asesor en este periodo. 🎉
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {items.map((g, i) => (
+            <li key={i} className="space-y-1">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-ink">{gapLabel(g.tema)}</span>
+                <span className="shrink-0 font-semibold text-brand-dark">
+                  {g.consultas} {g.consultas === 1 ? "consulta" : "consultas"}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-softer">
+                <div
+                  className="h-full rounded-full bg-amber/70"
+                  style={{ width: `${Math.max(8, Math.round((g.consultas / max) * 100))}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+// El tema puede ser un proyecto (legible tal cual) o una categoría conocida.
+function gapLabel(tema) {
+  if (!tema) return "Sin clasificar";
+  const asCat = catLabel(tema);
+  return asCat && asCat !== tema ? asCat : tema;
+}
+
+/* ---------------- Estratégico: nota de próximamente ---------------- */
+function ProximamenteNota() {
+  const pend = ["Tiempo de respuesta", "Cotizaciones con seguimiento", "Alertas con acción tomada"];
+  return (
+    <p className="text-xs text-muted2">
+      <span className="font-medium text-muted">Próximamente</span>, cuando el stack lo permita:{" "}
+      {pend.join(" · ")}.
+    </p>
+  );
+}
+
+/* ---------------- Adopción por esfuerzo (E1–E5) ---------------- */
+const ESFUERZOS = [
+  { id: "E1", nombre: "Producto / Información", pct: 82, estado: "En producción" },
+  { id: "E2", nombre: "Inventario", pct: 68, estado: "En producción" },
+  { id: "E3", nombre: "Espacio Comercial · DDV", pct: 35, estado: "Parcial" },
+  { id: "E4", nombre: "Cotizaciones", pct: 57, estado: "En producción" },
+  { id: "E5", nombre: "Contractual + Legal", pct: 12, estado: "Fase futura" },
+];
+const ESTADO_STYLE = {
+  "En producción": "bg-soft text-brand-green",
+  Parcial: "bg-amber/10 text-amber",
+  "Fase futura": "bg-softer text-muted2",
+};
+function AdopcionEsfuerzo() {
+  return (
+    <Card className="p-4 md:p-5">
+      <ul className="space-y-4">
+        {ESFUERZOS.map((e) => (
+          <li key={e.id} className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-display text-sm font-bold text-brand-dark">{e.id}</span>
+              <span className="text-sm text-ink">{e.nombre}</span>
+              <span
+                className={cx(
+                  "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                  ESTADO_STYLE[e.estado] || "bg-softer text-muted2"
+                )}
+              >
+                {e.estado}
+              </span>
+              <span className="ml-auto font-display text-sm font-bold text-brand-dark">{e.pct}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-softer">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${e.pct}%`,
+                  background: e.estado === "Fase futura" ? C.muted : e.estado === "Parcial" ? C.amber : C.leaf,
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
 
 /* ---------------- Serie diaria ---------------- */
 function SerieDiaria({ serie }) {
-  const hayHandoff = serie.some((d) => d.con_handoff > 0);
+  const hayResuelto = serie.some((d) => d.pct_resuelto != null);
   return (
     <Card className="p-4 md:p-5">
-      <SectionTitle title="Conversaciones por día" hint="Volumen diario que Orvito atendió." />
+      <SectionTitle
+        title="Conversaciones por día"
+        hint="Volumen diario y qué tanto resolvió Orvito sin escalar."
+      />
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={serie} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+          <ComposedChart data={serie} margin={{ top: 10, right: hayResuelto ? 4 : 8, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="gConv" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={C.leaf} stopOpacity={0.28} />
@@ -268,14 +531,28 @@ function SerieDiaria({ serie }) {
               minTickGap={16}
             />
             <YAxis
+              yAxisId="left"
               allowDecimals={false}
               tick={{ fontSize: 12, fill: C.muted }}
               axisLine={false}
               tickLine={false}
               width={38}
             />
+            {hayResuelto && (
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tick={{ fontSize: 11, fill: C.green }}
+                axisLine={false}
+                tickLine={false}
+                width={40}
+              />
+            )}
             <Tooltip content={<SerieTooltip />} />
             <Area
+              yAxisId="left"
               type="monotone"
               dataKey="conversaciones"
               stroke={C.dark}
@@ -286,45 +563,42 @@ function SerieDiaria({ serie }) {
               activeDot={{ r: 4 }}
               isAnimationActive={false}
             />
-            {hayHandoff && (
+            {hayResuelto && (
               <Line
+                yAxisId="right"
                 type="monotone"
-                dataKey="con_handoff"
-                stroke={C.amber}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-                dot={false}
-                name="Con agente"
+                dataKey="pct_resuelto"
+                stroke={C.green}
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: C.green, strokeWidth: 0 }}
+                name="% resuelto sin escalar"
+                connectNulls
                 isAnimationActive={false}
               />
             )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      {hayHandoff && (
-        <div className="mt-1 flex items-center gap-4 pl-2 text-xs text-muted">
-          <Legend color={C.dark}>Conversaciones</Legend>
-          <Legend color={C.amber} dashed>
-            Intervino un agente
-          </Legend>
-        </div>
-      )}
+      <div className="mt-1 flex flex-wrap items-center gap-4 pl-2 text-xs text-muted">
+        <Legend color={C.dark}>Conversaciones</Legend>
+        {hayResuelto && <Legend color={C.green}>% resuelto sin escalar</Legend>}
+      </div>
     </Card>
   );
 }
 function SerieTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const conv = payload.find((p) => p.dataKey === "conversaciones")?.value ?? 0;
-  const hand = payload.find((p) => p.dataKey === "con_handoff")?.value ?? 0;
+  const pct = payload.find((p) => p.dataKey === "pct_resuelto")?.value;
   return (
     <div className="rounded-xl border border-line bg-white px-3 py-2 text-xs shadow-modal">
       <p className="mb-1 font-semibold text-ink">{diaLargo(label)}</p>
       <p className="text-muted">
         <b className="text-brand-dark">{conv}</b> conversaciones
       </p>
-      {hand > 0 && (
+      {pct != null && (
         <p className="text-muted">
-          <b className="text-amber">{hand}</b> con intervención de agente
+          <b className="text-brand-green">{pct}%</b> resuelto sin escalar
         </p>
       )}
     </div>
@@ -493,9 +767,9 @@ function MiniEmpty({ text }) {
 }
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((i) => (
           <Card key={i} className="space-y-3 p-4 md:p-5">
             <Skeleton className="h-3 w-1/2" />
             <Skeleton className="h-8 w-2/3" />
