@@ -269,66 +269,72 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
 
   return (
     <Card className="flex h-[75vh] min-h-[460px] flex-col overflow-hidden md:h-[calc(100vh-7rem)]">
-      {/* header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-        <button
-          onClick={onBack}
-          className="rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
-          aria-label="Volver"
-        >
-          ←
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-ink">{nombre}</p>
-          <p className="text-xs text-muted2">
-            {soyNuevo ? "Documento nuevo" : `${meta.categoria || "—"} · ${meta.total_chunks} fragmentos`}
-            {dirty && <span className="ml-2 text-amber">• sin guardar</span>}
-          </p>
-        </div>
-
-        {/* toggle editar / vista */}
-        <div className="inline-flex rounded-xl border border-line bg-white p-0.5">
-          {[
-            { v: "editar", l: "Editar" },
-            { v: "vista", l: "Vista previa" },
-          ].map((o) => (
-            <button
-              key={o.v}
-              onClick={() => setTab(o.v)}
-              className={cx(
-                "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
-                tab === o.v ? "bg-soft text-brand-dark" : "text-muted hover:text-ink"
-              )}
-            >
-              {o.l}
-            </button>
-          ))}
-        </div>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".md,text/markdown"
-          className="hidden"
-          onChange={(e) => subirArchivo(e.target.files?.[0])}
-        />
-        <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()} title="Cargar un .md">
-          <Upload size={16} /> Subir .md
-        </Button>
-        {!soyNuevo && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-danger hover:bg-danger/10"
-            onClick={() => setConfirmDel(true)}
-            title="Eliminar documento"
+      {/* header — en móvil se apila: título arriba, controles abajo (evita que choquen) */}
+      <div className="flex flex-col gap-2 border-b border-line px-4 py-3 md:flex-row md:flex-wrap md:items-center">
+        {/* título */}
+        <div className="flex min-w-0 items-center gap-2 md:flex-1">
+          <button
+            onClick={onBack}
+            className="shrink-0 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
+            aria-label="Volver"
           >
-            <Trash size={16} />
+            ←
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-ink">{nombre}</p>
+            <p className="truncate text-xs text-muted2">
+              {soyNuevo ? "Documento nuevo" : `${meta.categoria || "—"} · ${meta.total_chunks} fragmentos`}
+              {dirty && <span className="ml-2 text-amber">• sin guardar</span>}
+            </p>
+          </div>
+        </div>
+
+        {/* controles */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* toggle editar / vista */}
+          <div className="inline-flex rounded-xl border border-line bg-white p-0.5">
+            {[
+              { v: "editar", l: "Editar" },
+              { v: "vista", l: "Vista" },
+            ].map((o) => (
+              <button
+                key={o.v}
+                onClick={() => setTab(o.v)}
+                className={cx(
+                  "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
+                  tab === o.v ? "bg-soft text-brand-dark" : "text-muted hover:text-ink"
+                )}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".md,text/markdown"
+            className="hidden"
+            onChange={(e) => subirArchivo(e.target.files?.[0])}
+          />
+          <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()} title="Cargar un .md">
+            <Upload size={16} /> <span className="hidden sm:inline">Subir .md</span>
           </Button>
-        )}
-        <Button size="sm" onClick={guardar} disabled={!puedeGuardar || saving}>
-          <Save size={16} /> {saving ? "Guardando…" : "Guardar"}
-        </Button>
+          {!soyNuevo && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-danger hover:bg-danger/10"
+              onClick={() => setConfirmDel(true)}
+              title="Eliminar documento"
+            >
+              <Trash size={16} />
+            </Button>
+          )}
+          <Button size="sm" onClick={guardar} disabled={!puedeGuardar || saving}>
+            <Save size={16} /> {saving ? "Guardando…" : "Guardar"}
+          </Button>
+        </div>
       </div>
 
       {/* cuerpo */}
