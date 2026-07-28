@@ -270,6 +270,53 @@ function TipoBadge({ tipo, rol, size = "sm" }) {
   );
 }
 
+/** Foto de perfil del asesor (avatar_url del CRM). Fallback: iniciales o ícono. */
+function initialsOf(name) {
+  const s = String(name || "").trim();
+  if (!s || /^[+\d]/.test(s)) return null; // teléfono o vacío → sin iniciales
+  const parts = s.split(/\s+/).filter(Boolean);
+  const a = parts[0][0] || "";
+  const b = parts.length > 1 ? parts[parts.length - 1][0] : parts[0][1] || "";
+  return (a + b).toUpperCase();
+}
+function UserGlyph({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+function Avatar({ src, name, tipo, size = 44 }) {
+  const [err, setErr] = useState(false);
+  const esInterno = tipo === "interno";
+  if (src && !err) {
+    return (
+      <img
+        src={src}
+        alt={name || "Foto de perfil"}
+        loading="lazy"
+        onError={() => setErr(true)}
+        className="shrink-0 rounded-full bg-softer object-cover ring-1 ring-line"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  const ini = initialsOf(name);
+  return (
+    <span
+      className={cx(
+        "grid shrink-0 place-items-center rounded-full font-semibold ring-1",
+        esInterno ? "bg-brand-green/10 text-brand-green ring-brand-green/20" : "bg-soft text-brand-dark ring-line"
+      )}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-hidden
+    >
+      {ini || <UserGlyph size={Math.round(size * 0.5)} />}
+    </span>
+  );
+}
+
 function ConvItem({ c, active, onClick }) {
   const porOrvito = !c.atendida_por;
   return (
@@ -280,26 +327,31 @@ function ConvItem({ c, active, onClick }) {
         active ? "border-brand-leaf/50 bg-soft/50" : "border-line bg-white hover:bg-softer"
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-semibold text-ink">{c.nombre_mostrar || c.contacto}</span>
-        <span className="shrink-0 text-[11px] text-muted2">{fmtRelativo(c.ultima_actividad)}</span>
-      </div>
-      <div className="mt-0.5">
-        <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
-      </div>
-      {c.ultimo_mensaje && (
-        <p className="mt-1 truncate text-sm text-muted">{stripFormato(c.ultimo_mensaje)}</p>
-      )}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-          <span className={cx("h-1.5 w-1.5 rounded-full", porOrvito ? "bg-brand-leaf" : "bg-brand-green")} />
-          {porOrvito ? "Orvito" : c.atendida_por}
-        </span>
-        {c.no_leidos > 0 && (
-          <span className="anim-pop grid h-5 min-w-5 place-items-center rounded-full bg-brand-dark px-1.5 text-[11px] font-semibold text-white">
-            {c.no_leidos}
-          </span>
-        )}
+      <div className="flex gap-3">
+        <Avatar src={c.crm_avatar} name={c.nombre_mostrar || c.contacto} tipo={c.tipo} size={44} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate font-semibold text-ink">{c.nombre_mostrar || c.contacto}</span>
+            <span className="shrink-0 text-[11px] text-muted2">{fmtRelativo(c.ultima_actividad)}</span>
+          </div>
+          <div className="mt-0.5">
+            <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
+          </div>
+          {c.ultimo_mensaje && (
+            <p className="mt-1 truncate text-sm text-muted">{stripFormato(c.ultimo_mensaje)}</p>
+          )}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+              <span className={cx("h-1.5 w-1.5 rounded-full", porOrvito ? "bg-brand-leaf" : "bg-brand-green")} />
+              {porOrvito ? "Orvito" : c.atendida_por}
+            </span>
+            {c.no_leidos > 0 && (
+              <span className="anim-pop grid h-5 min-w-5 place-items-center rounded-full bg-brand-dark px-1.5 text-[11px] font-semibold text-white">
+                {c.no_leidos}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </button>
   );
@@ -404,14 +456,20 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     >
       {/* header: en móvil se apila (identidad arriba, acciones abajo); en desktop, una fila */}
       <div className="flex flex-col gap-2 border-b border-line px-4 py-3 md:flex-row md:items-center md:gap-3">
-        <div className="flex min-w-0 items-start gap-2 md:flex-1">
+        <div className="flex min-w-0 items-center gap-2 md:flex-1">
           <button
             onClick={onBack}
-            className="-ml-1 mt-0.5 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
+            className="-ml-1 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
             aria-label="Volver"
           >
             ←
           </button>
+          <Avatar
+            src={conv?.crm_avatar}
+            name={conv?.nombre_mostrar || conv?.contacto}
+            tipo={conv?.tipo}
+            size={40}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <p className="truncate font-semibold text-ink">
