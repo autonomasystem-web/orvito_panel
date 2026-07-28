@@ -334,8 +334,16 @@ function ConvItem({ c, active, onClick }) {
             <span className="truncate font-semibold text-ink">{c.nombre_mostrar || c.contacto}</span>
             <span className="shrink-0 text-[11px] text-muted2">{fmtRelativo(c.ultima_actividad)}</span>
           </div>
-          <div className="mt-0.5">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
+            {c.hilos > 1 && (
+              <span
+                className="rounded-full bg-softer px-1.5 py-0.5 text-[10px] font-medium text-muted2"
+                title="Esta persona tiene varias conversaciones en Chatwoot; se muestra la más reciente."
+              >
+                {c.hilos} hilos
+              </span>
+            )}
           </div>
           {c.ultimo_mensaje && (
             <p className="mt-1 truncate text-sm text-muted">{stripFormato(c.ultimo_mensaje)}</p>
