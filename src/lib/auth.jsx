@@ -9,6 +9,8 @@ const ADMIN_EMAILS = [
   "emilianotkpa@gmail.com",
   "fernanda.montero@grupoorve.mx",
   "jesus.sotres@grupoorve.mx",
+  "carlos.garrido@grupoorve.mx",
+  "jose.martinez@grupoorve.mx",
 ];
 
 export function AuthProvider({ children }) {
