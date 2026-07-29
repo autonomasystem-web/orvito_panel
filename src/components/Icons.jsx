@@ -55,6 +55,13 @@ export const Bars = ({ size }) => (
     <rect x="15.6" y="4" width="3.4" height="14" rx="1" />
   </svg>
 );
+export const Refresh = ({ size, className }) => (
+  <svg {...base(size)} className={className}>
+    <path d="M23 4v6h-6" />
+    <path d="M1 20v-6h6" />
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+  </svg>
+);
 export const Logout = ({ size }) => (
   <svg {...base(size)}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -11,7 +11,7 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Chat, Sparkles } from "../components/Icons.jsx";
+import { Chat, Sparkles, Refresh } from "../components/Icons.jsx";
 import RichText, { stripFormato } from "../components/RichText.jsx";
 import {
   listarConversaciones,
@@ -19,6 +19,7 @@ import {
   cambiarEstadoConversacion,
   marcarLeidaConversacion,
   resumirAhora,
+  refrescarCrm,
 } from "../lib/api.js";
 import { fmtRelativo, fmtHora, fmtDiaSeparador, diaKey } from "../lib/format.js";
 import { catLabel } from "./Resumenes.jsx";
@@ -374,6 +375,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
   const [cambiando, setCambiando] = useState(false);
   const [resumen, setResumen] = useState(null);
   const [resumiendo, setResumiendo] = useState(false);
+  const [refrescando, setRefrescando] = useState(false);
   const scrollRef = useRef(null);
   const cardRef = useRef(null);
 
@@ -452,6 +454,42 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     }
   };
 
+  // Fuerza una consulta en vivo al CRM (útil si la persona acaba de verificar su número).
+  const refrescarCRM = async () => {
+    const tel = data?.conversacion?.telefono;
+    if (!tel || refrescando) return;
+    setRefrescando(true);
+    try {
+      const r = await refrescarCrm(tel, data?.conversacion?.contacto);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              conversacion: {
+                ...prev.conversacion,
+                tipo: r.tipo,
+                crm_nombre: r.crm_nombre,
+                crm_rol: r.crm_rol,
+                crm_sucursal: r.crm_sucursal,
+                crm_avatar: r.crm_avatar,
+                nombre_mostrar: r.nombre_mostrar,
+              },
+            }
+          : prev
+      );
+      onEstadoCambiado?.(); // refresca también la lista
+      toast.success(
+        r.tipo === "interno"
+          ? `Actualizado: ${r.crm_rol || "asesor"}`
+          : "Actualizado: aún sin verificar en el CRM"
+      );
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setRefrescando(false);
+    }
+  };
+
   const conv = data?.conversacion;
   const est = ESTADO[conv?.status] || ESTADO.pending;
 
@@ -511,6 +549,18 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
           {conv?.status === "resolved" && (
             <Button size="sm" variant="outline" onClick={() => cambiarEstado("open")} disabled={cambiando}>
               Reabrir
+            </Button>
+          )}
+          {conv && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={refrescarCRM}
+              disabled={refrescando}
+              title="Actualizar datos del CRM (rol y foto) desde el CRM en vivo"
+              aria-label="Actualizar CRM"
+            >
+              <Refresh size={18} className={refrescando ? "animate-spin" : ""} />
             </Button>
           )}
           {conv && (
