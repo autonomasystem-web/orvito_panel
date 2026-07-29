@@ -20,6 +20,7 @@ import {
   marcarLeidaConversacion,
   resumirAhora,
   refrescarCrm,
+  dispararSyncAvatares,
 } from "../lib/api.js";
 import { fmtRelativo, fmtHora, fmtDiaSeparador, diaKey } from "../lib/format.js";
 import { catLabel } from "./Resumenes.jsx";
@@ -95,6 +96,17 @@ export default function Conversaciones() {
   useEffect(() => {
     loadList();
   }, [loadList]);
+
+  // Al entrar al panel: dispara el sync de avatares (toma asesores nuevos sin esperar el cron).
+  // Throttled a 5 min. A los 12s recarga suave: para entonces el sync ya actualizó la caché.
+  useEffect(() => {
+    dispararSyncAvatares();
+    const t = setTimeout(() => {
+      if (document.visibilityState === "visible") loadList({ silent: true });
+    }, 12000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-refresh suave cada 30s (solo pestaña visible y en página 1, para no perder scroll)
   useEffect(() => {
