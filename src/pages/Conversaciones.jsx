@@ -13,6 +13,7 @@ import {
 } from "../components/ui.jsx";
 import { Chat, Sparkles, Refresh } from "../components/Icons.jsx";
 import RichText, { stripFormato } from "../components/RichText.jsx";
+import mascotaOrvito from "../assets/orvito-mascota.webp";
 import {
   listarConversaciones,
   verConversacion,
@@ -351,6 +352,9 @@ function UserGlyph({ size = 22 }) {
   );
 }
 function Avatar({ src, name, tipo, size = 44 }) {
+  const esInterno = tipo === "interno";
+  // Asesor interno sin foto real → mascota Orvito (default de marca). Cliente sin foto → iniciales.
+  const effectiveSrc = src || (esInterno ? mascotaOrvito : null);
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [gaveUp, setGaveUp] = useState(false);
@@ -358,20 +362,23 @@ function Avatar({ src, name, tipo, size = 44 }) {
     setAttempt(0);
     setLoaded(false);
     setGaveUp(false);
-  }, [src]);
+  }, [effectiveSrc]);
   // El Storage self-hosted a veces tira peticiones cuando la lista pide muchas fotos a la vez;
   // si la imagen falla o se queda colgada, se reintenta (con cache-bust) hasta 3 veces.
   useEffect(() => {
-    if (!src || loaded || gaveUp) return;
+    if (!effectiveSrc || loaded || gaveUp) return;
     const t = setTimeout(() => {
       if (attempt >= 3) setGaveUp(true);
       else setAttempt((a) => a + 1);
     }, 4500);
     return () => clearTimeout(t);
-  }, [src, attempt, loaded, gaveUp]);
-  const esInterno = tipo === "interno";
+  }, [effectiveSrc, attempt, loaded, gaveUp]);
   const ini = initialsOf(name);
-  const bust = src ? (attempt > 0 ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src) : null;
+  const bust = effectiveSrc
+    ? attempt > 0
+      ? `${effectiveSrc}${effectiveSrc.includes("?") ? "&" : "?"}r=${attempt}`
+      : effectiveSrc
+    : null;
   // Iniciales/ícono SIEMPRE de fondo; la foto (si carga) va encima. Así nunca queda un círculo vacío.
   return (
     <span
