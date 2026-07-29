@@ -310,11 +310,11 @@ function TipoBadge({ tipo, rol, size = "sm" }) {
       className={cx(
         "inline-flex items-center gap-1 rounded-full font-semibold",
         pad,
-        esInterno ? "bg-brand-green/10 text-brand-green" : "bg-line text-muted",
+        esInterno ? "bg-brand-dark text-white" : "bg-line text-muted",
       )}
     >
       <span
-        className={cx("h-1.5 w-1.5 rounded-full", esInterno ? "bg-brand-green" : "bg-muted2")}
+        className={cx("h-1.5 w-1.5 rounded-full", esInterno ? "bg-brand-leaf" : "bg-muted2")}
       />
       {esInterno ? rol || "Asesor ORVE" : "Cliente"}
     </span>
