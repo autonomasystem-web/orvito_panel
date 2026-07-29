@@ -340,30 +340,28 @@ function UserGlyph({ size = 22 }) {
 }
 function Avatar({ src, name, tipo, size = 44 }) {
   const [err, setErr] = useState(false);
+  useEffect(() => setErr(false), [src]); // reintenta si cambia la foto
   const esInterno = tipo === "interno";
-  if (src && !err) {
-    return (
-      <img
-        src={src}
-        alt={name || "Foto de perfil"}
-        loading="lazy"
-        onError={() => setErr(true)}
-        className="shrink-0 rounded-full bg-softer object-cover ring-1 ring-line"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
   const ini = initialsOf(name);
+  // Iniciales/ícono SIEMPRE de fondo; la foto (si carga) va encima. Así nunca queda un círculo vacío.
   return (
     <span
       className={cx(
-        "grid shrink-0 place-items-center rounded-full font-semibold ring-1",
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold ring-1",
         esInterno ? "bg-brand-green/10 text-brand-green ring-brand-green/20" : "bg-soft text-brand-dark ring-line"
       )}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
-      aria-hidden
     >
-      {ini || <UserGlyph size={Math.round(size * 0.5)} />}
+      <span aria-hidden>{ini || <UserGlyph size={Math.round(size * 0.5)} />}</span>
+      {src && !err && (
+        <img
+          src={src}
+          alt={name || "Foto de perfil"}
+          loading="lazy"
+          onError={() => setErr(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
     </span>
   );
 }
