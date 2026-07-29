@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout, { PageHeader } from "../components/Layout.jsx";
 import {
   Button,
@@ -54,11 +54,14 @@ function addMonths(iso, n) {
 export default function Entregas() {
   const { proyecto: slug } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nombreParam = searchParams.get("nombre") || ""; // proyecto nuevo aún sin entregas
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading");
   const [filtro, setFiltro] = useState("activos"); // activos | todos
   const [modal, setModal] = useState(null);
+  const [nuevoProy, setNuevoProy] = useState(false);
   const [toDelete, setToDelete] = useState(null);
 
   const load = async () => {
@@ -84,8 +87,11 @@ export default function Entregas() {
   const proyectoSel = useMemo(() => {
     if (!slug) return null;
     const hit = items.find((e) => slugify(e.proyecto) === slug);
-    return hit ? hit.proyecto : null;
-  }, [slug, items]);
+    if (hit) return hit.proyecto;
+    // Proyecto recién creado (aún sin entregas): usa el nombre del query param.
+    if (nombreParam && slugify(nombreParam) === slug) return nombreParam;
+    return null;
+  }, [slug, items, nombreParam]);
 
   // Bloques por proyecto (índice), con conteo según el filtro
   const bloques = useMemo(() => {
@@ -168,13 +174,18 @@ export default function Entregas() {
             : "Elige un proyecto para ver sus entregas por etapa."
         }
         action={
-          <Button
-            onClick={() =>
-              setModal({ mode: "crear", data: esDetalle ? { proyecto: proyectoSel || "" } : {} })
-            }
-          >
-            <Plus size={18} /> Nueva entrega
-          </Button>
+          esDetalle ? (
+            <Button
+              onClick={() => setModal({ mode: "crear", data: { proyecto: proyectoSel || "" } })}
+              disabled={!proyectoSel}
+            >
+              <Plus size={18} /> Nueva entrega
+            </Button>
+          ) : (
+            <Button onClick={() => setNuevoProy(true)}>
+              <Plus size={18} /> Nuevo proyecto
+            </Button>
+          )
         }
       />
 
@@ -253,12 +264,12 @@ export default function Entregas() {
       {/* ---------- ÍNDICE: /entregas ---------- */}
       {status === "ready" && !esDetalle && bloques.length === 0 && (
         <EmptyState
-          icon={<Calendar size={22} />}
-          title={filtro === "activos" ? "Aún no hay entregas" : "Sin entregas"}
-          text="Agrega la primera entrega; se agrupa sola por proyecto."
+          icon={<MapPin size={22} />}
+          title={filtro === "activos" ? "Aún no hay proyectos con entregas" : "Sin proyectos"}
+          text="Crea un proyecto y luego agrega sus entregas por etapa."
           action={
-            <Button onClick={() => setModal({ mode: "crear", data: {} })}>
-              <Plus size={18} /> Nueva entrega
+            <Button onClick={() => setNuevoProy(true)}>
+              <Plus size={18} /> Nuevo proyecto
             </Button>
           }
         />
@@ -269,7 +280,26 @@ export default function Entregas() {
           {bloques.map((b) => (
             <ProyectoBlock key={b.slug} b={b} onClick={() => navigate(`/entregas/${b.slug}`)} />
           ))}
+          <button
+            onClick={() => setNuevoProy(true)}
+            className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line bg-transparent p-5 text-muted transition-colors hover:border-brand-leaf/50 hover:bg-soft/30 hover:text-brand-dark"
+          >
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-soft text-brand-dark">
+              <Plus size={22} />
+            </span>
+            <span className="text-sm font-semibold">Nuevo proyecto</span>
+          </button>
         </div>
+      )}
+
+      {nuevoProy && (
+        <NuevoProyectoModal
+          onClose={() => setNuevoProy(false)}
+          onCrear={(nombre) => {
+            setNuevoProy(false);
+            navigate(`/entregas/${slugify(nombre)}?nombre=${encodeURIComponent(nombre)}`);
+          }}
+        />
       )}
 
       {modal && (
@@ -328,6 +358,50 @@ function ProyectoBlock({ b, onClick }) {
         Ver entregas →
       </span>
     </button>
+  );
+}
+
+/* --------- Modal: nuevo proyecto --------- */
+function NuevoProyectoModal({ onClose, onCrear }) {
+  const [nombre, setNombre] = useState("");
+  const [touched, setTouched] = useState(false);
+  const valid = nombre.trim().length > 1;
+  const submit = () => {
+    setTouched(true);
+    if (!valid) return;
+    onCrear(nombre.trim());
+  };
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Nuevo proyecto"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={submit}>Continuar</Button>
+        </>
+      }
+    >
+      <Field
+        label="Nombre del proyecto"
+        hint={touched && !valid ? "Escribe el nombre del proyecto." : "Ej. Ciudad Central Progreso"}
+        hintTone={touched && !valid ? "amber" : "muted"}
+      >
+        <Input
+          autoFocus
+          placeholder="Ej. Ciudad Central Progreso"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+      </Field>
+      <p className="mt-1 text-xs text-muted2">
+        Se abre el proyecto para que agregues sus entregas por etapa.
+      </p>
+    </Modal>
   );
 }
 
