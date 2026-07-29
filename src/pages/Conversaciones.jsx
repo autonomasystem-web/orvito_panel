@@ -339,10 +339,27 @@ function UserGlyph({ size = 22 }) {
   );
 }
 function Avatar({ src, name, tipo, size = 44 }) {
-  const [err, setErr] = useState(false);
-  useEffect(() => setErr(false), [src]); // reintenta si cambia la foto
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    setAttempt(0);
+    setLoaded(false);
+    setGaveUp(false);
+  }, [src]);
+  // El Storage self-hosted a veces tira peticiones cuando la lista pide muchas fotos a la vez;
+  // si la imagen falla o se queda colgada, se reintenta (con cache-bust) hasta 3 veces.
+  useEffect(() => {
+    if (!src || loaded || gaveUp) return;
+    const t = setTimeout(() => {
+      if (attempt >= 3) setGaveUp(true);
+      else setAttempt((a) => a + 1);
+    }, 4500);
+    return () => clearTimeout(t);
+  }, [src, attempt, loaded, gaveUp]);
   const esInterno = tipo === "interno";
   const ini = initialsOf(name);
+  const bust = src ? (attempt > 0 ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src) : null;
   // Iniciales/ícono SIEMPRE de fondo; la foto (si carga) va encima. Así nunca queda un círculo vacío.
   return (
     <span
@@ -353,12 +370,17 @@ function Avatar({ src, name, tipo, size = 44 }) {
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
     >
       <span aria-hidden>{ini || <UserGlyph size={Math.round(size * 0.5)} />}</span>
-      {src && !err && (
+      {bust && !gaveUp && (
         <img
-          src={src}
+          key={attempt}
+          src={bust}
           alt={name || "Foto de perfil"}
           loading="lazy"
-          onError={() => setErr(true)}
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            if (attempt >= 3) setGaveUp(true);
+            else setAttempt((a) => a + 1);
+          }}
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}
