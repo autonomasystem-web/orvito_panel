@@ -16,6 +16,26 @@ async function getToken() {
   return data?.session?.access_token || "";
 }
 
+// Dispara el sync de avatares (toma asesores nuevos / primeras fotos sin esperar el cron de 3h).
+// Fire-and-forget: no bloquea la UI y se auto-limita a 1 vez cada 5 min por navegador.
+export function dispararSyncAvatares() {
+  try {
+    if (!GATEWAY_URL) return;
+    const last = Number(localStorage.getItem("orvito_avatar_sync") || 0);
+    if (Date.now() - last < 5 * 60 * 1000) return; // throttle 5 min
+    localStorage.setItem("orvito_avatar_sync", String(Date.now()));
+    const syncUrl = GATEWAY_URL.replace(/\/[^/]+$/, "/orvito-sync-avatares");
+    fetch(syncUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* silencioso: es una mejora opcional, nunca debe romper la carga */
+  }
+}
+
 // Cliente central. 1 reintento SOLO en errores de red.
 async function call(accion, data = {}, _retried = false) {
   if (!GATEWAY_URL) {
