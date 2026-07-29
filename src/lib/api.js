@@ -178,6 +178,11 @@ export async function verConversacion(id) {
     mensajes: Array.isArray(r.mensajes) ? r.mensajes : [],
   };
 }
+// Fuerza una consulta EN VIVO al CRM para este contacto (1 llamada) y actualiza su caché.
+// Útil cuando alguien acaba de verificar su número y quieres verlo al instante.
+export async function refrescarCrm(telefono, contacto) {
+  return call("refrescar_crm", { telefono, contacto });
+}
 
 /* ----------------- Estado de Orvito (encendido / mantenimiento) ----------------- */
 export async function obtenerConfig() {
