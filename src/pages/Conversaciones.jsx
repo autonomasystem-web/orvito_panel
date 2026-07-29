@@ -52,6 +52,8 @@ export default function Conversaciones() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [sel, setSel] = useState(null); // id seleccionado
   const [mobileDetail, setMobileDetail] = useState(false);
+  const [refrescandoTodos, setRefrescandoTodos] = useState(false);
+  const [progTodos, setProgTodos] = useState({ done: 0, total: 0 });
   const [searchParams] = useSearchParams();
 
   const itemsVisibles =
@@ -97,12 +99,48 @@ export default function Conversaciones() {
   // Auto-refresh suave cada 30s (solo pestaña visible y en página 1, para no perder scroll)
   useEffect(() => {
     const t = setInterval(() => {
-      if (document.visibilityState === "visible" && pagina === 1) {
+      if (document.visibilityState === "visible" && pagina === 1 && !refrescandoTodos) {
         loadList({ silent: true });
       }
     }, 30000);
     return () => clearInterval(t);
-  }, [loadList, pagina]);
+  }, [loadList, pagina, refrescandoTodos]);
+
+  // "Actualizar todos": recorre los chats cargados UNO POR UNO (secuencial) consultando
+  // el CRM en vivo. Secuencial a propósito: el CRM tira las conexiones si le llegan en bloque.
+  const actualizarTodos = async () => {
+    if (refrescandoTodos) return;
+    const objetivo = items.filter((c) => c.telefono);
+    if (!objetivo.length) return;
+    setRefrescandoTodos(true);
+    setProgTodos({ done: 0, total: objetivo.length });
+    for (let i = 0; i < objetivo.length; i++) {
+      const c = objetivo[i];
+      try {
+        const r = await refrescarCrm(c.telefono, c.contacto);
+        setItems((prev) =>
+          prev.map((x) =>
+            x.id === c.id
+              ? {
+                  ...x,
+                  tipo: r.tipo,
+                  crm_rol: r.crm_rol,
+                  crm_avatar: r.crm_avatar,
+                  crm_nombre: r.crm_nombre,
+                  crm_sucursal: r.crm_sucursal,
+                  nombre_mostrar: r.nombre_mostrar,
+                }
+              : x
+          )
+        );
+      } catch (e) {
+        /* si uno falla, seguimos con los demás */
+      }
+      setProgTodos({ done: i + 1, total: objetivo.length });
+    }
+    setRefrescandoTodos(false);
+    toast.success("Datos del CRM actualizados.");
+  };
 
   const cargarMas = async () => {
     setLoadingMore(true);
@@ -134,6 +172,18 @@ export default function Conversaciones() {
       <PageHeader
         title="Conversaciones"
         subtitle="Los chats de WhatsApp que atiende Orvito."
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={actualizarTodos}
+            disabled={refrescandoTodos || status !== "ready"}
+            title="Consulta el CRM en vivo para todos los chats cargados (uno por uno)"
+          >
+            <Refresh size={16} className={refrescandoTodos ? "animate-spin" : ""} />
+            {refrescandoTodos ? `Actualizando ${progTodos.done}/${progTodos.total}` : "Actualizar todos"}
+          </Button>
+        }
       />
 
       {/* filtros por estado */}
