@@ -95,6 +95,14 @@ export default function App() {
         }
       />
       <Route
+        path="/entregas/:proyecto"
+        element={
+          <Protected>
+            <Entregas />
+          </Protected>
+        }
+      />
+      <Route
         path="/temas"
         element={
           <AdminRoute>

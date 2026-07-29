@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import Layout, { PageHeader } from "../components/Layout.jsx";
 import {
   Button,
@@ -21,6 +22,17 @@ import { fmtFecha, truthy } from "../lib/format.js";
 
 const TIPOS = ["Privada", "Torre"];
 
+// Slug legible por proyecto para la URL (ej. "Ciudad Central Mérida" -> "ciudad-central-merida")
+function slugify(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // "Privada 3" / "Torre A", sin duplicar el tipo si el nombre ya lo trae
 function unidadTxt(e) {
   if (!e) return "";
@@ -40,10 +52,11 @@ function addMonths(iso, n) {
 }
 
 export default function Entregas() {
+  const { proyecto: slug } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading");
-  const [proyectoF, setProyectoF] = useState("todos");
   const [filtro, setFiltro] = useState("activos"); // activos | todos
   const [modal, setModal] = useState(null);
   const [toDelete, setToDelete] = useState(null);
@@ -61,33 +74,43 @@ export default function Entregas() {
     load();
   }, []);
 
-  const proyectos = useMemo(
+  // Nombres de proyecto (para el autocompletado del modal)
+  const proyectosNombres = useMemo(
     () => [...new Set(items.map((e) => e.proyecto).filter(Boolean))].sort(),
     [items]
   );
 
-  const visibles = useMemo(() => {
-    let arr = [...items];
+  // Proyecto seleccionado por la ruta (si hay slug)
+  const proyectoSel = useMemo(() => {
+    if (!slug) return null;
+    const hit = items.find((e) => slugify(e.proyecto) === slug);
+    return hit ? hit.proyecto : null;
+  }, [slug, items]);
+
+  // Bloques por proyecto (índice), con conteo según el filtro
+  const bloques = useMemo(() => {
+    const m = new Map();
+    for (const e of items) {
+      if (filtro === "activos" && !truthy(e.activo)) continue;
+      const p = e.proyecto || "(sin proyecto)";
+      if (!m.has(p)) m.set(p, { proyecto: p, slug: slugify(p), total: 0 });
+      m.get(p).total++;
+    }
+    return [...m.values()].sort((a, b) => a.proyecto.localeCompare(b.proyecto, "es"));
+  }, [items, filtro]);
+
+  // Entregas del proyecto seleccionado (detalle)
+  const entregasProyecto = useMemo(() => {
+    if (!proyectoSel) return [];
+    let arr = items.filter((e) => e.proyecto === proyectoSel);
     if (filtro === "activos") arr = arr.filter((e) => truthy(e.activo));
-    if (proyectoF !== "todos") arr = arr.filter((e) => e.proyecto === proyectoF);
     arr.sort(
       (a, b) =>
-        String(a.proyecto || "").localeCompare(String(b.proyecto || "")) ||
         String(a.etapa || "").localeCompare(String(b.etapa || ""), "es", { numeric: true }) ||
         String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { numeric: true })
     );
     return arr;
-  }, [items, filtro, proyectoF]);
-
-  const grupos = useMemo(() => {
-    const m = new Map();
-    for (const e of visibles) {
-      const k = e.proyecto || "(sin proyecto)";
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push(e);
-    }
-    return [...m.entries()];
-  }, [visibles]);
+  }, [items, proyectoSel, filtro]);
 
   const onSaved = async (msg) => {
     setModal(null);
@@ -106,54 +129,78 @@ export default function Entregas() {
     }
   };
 
+  const esDetalle = !!slug;
+  const filtroCtl = (
+    <Segmented
+      value={filtro}
+      onChange={setFiltro}
+      options={[
+        { value: "activos", label: "Activas" },
+        { value: "todos", label: "Todas" },
+      ]}
+    />
+  );
+
   return (
     <Layout>
       <PageHeader
-        title="Entregas"
-        subtitle="Fechas de entrega por proyecto. La info CLIENTE es lo que se comunica al cliente."
+        title={
+          esDetalle ? (
+            <span className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/entregas")}
+                className="-ml-1 rounded-lg px-1.5 text-muted hover:bg-soft hover:text-ink"
+                aria-label="Volver a proyectos"
+                title="Volver a proyectos"
+              >
+                ←
+              </button>
+              <MapPin size={20} className="text-brand-dark" />
+              {proyectoSel || (status === "ready" ? "Proyecto" : "…")}
+            </span>
+          ) : (
+            "Entregas"
+          )
+        }
+        subtitle={
+          esDetalle
+            ? "Entregas por etapa. La info CLIENTE es lo que se comunica al cliente."
+            : "Elige un proyecto para ver sus entregas por etapa."
+        }
         action={
-          <Button onClick={() => setModal({ mode: "crear", data: {} })}>
+          <Button
+            onClick={() =>
+              setModal({ mode: "crear", data: esDetalle ? { proyecto: proyectoSel || "" } : {} })
+            }
+          >
             <Plus size={18} /> Nueva entrega
           </Button>
         }
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Segmented
-          value={filtro}
-          onChange={setFiltro}
-          options={[
-            { value: "activos", label: "Activas" },
-            { value: "todos", label: "Todas" },
-          ]}
-        />
-        {proyectos.length > 0 && (
-          <select
-            className={cx(inputCls, "h-9 w-auto py-0")}
-            value={proyectoF}
-            onChange={(e) => setProyectoF(e.target.value)}
-          >
-            <option value="todos">Todos los proyectos</option>
-            {proyectos.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      <div className="mb-6">{filtroCtl}</div>
 
-      {status === "loading" && (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Card key={i} className="space-y-3 p-4 md:p-5">
-              <Skeleton className="h-5 w-2/3" />
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-16 w-full" />
-            </Card>
-          ))}
-        </div>
-      )}
+      {status === "loading" &&
+        (esDetalle ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="space-y-3 p-4 md:p-5">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-16 w-full" />
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="space-y-3 p-5">
+                <Skeleton className="h-11 w-11 rounded-xl" />
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/3" />
+              </Card>
+            ))}
+          </div>
+        ))}
 
       {status === "error" && (
         <ErrorState
@@ -163,11 +210,52 @@ export default function Entregas() {
         />
       )}
 
-      {status === "ready" && visibles.length === 0 && (
+      {/* ---------- DETALLE: /entregas/:slug ---------- */}
+      {status === "ready" && esDetalle && !proyectoSel && (
+        <EmptyState
+          icon={<MapPin size={22} />}
+          title="Proyecto no encontrado"
+          text="Ese proyecto no tiene entregas o el enlace cambió."
+          action={<Button onClick={() => navigate("/entregas")}>Ver proyectos</Button>}
+        />
+      )}
+
+      {status === "ready" && esDetalle && proyectoSel && entregasProyecto.length === 0 && (
+        <EmptyState
+          icon={<Calendar size={22} />}
+          title="Sin entregas"
+          text={
+            filtro === "activos"
+              ? "Este proyecto no tiene entregas activas. Cambia a 'Todas' o agrega una."
+              : "Agrega la primera entrega de este proyecto."
+          }
+          action={
+            <Button onClick={() => setModal({ mode: "crear", data: { proyecto: proyectoSel } })}>
+              <Plus size={18} /> Nueva entrega
+            </Button>
+          }
+        />
+      )}
+
+      {status === "ready" && esDetalle && proyectoSel && entregasProyecto.length > 0 && (
+        <div className="seq cards-lift space-y-3">
+          {entregasProyecto.map((e) => (
+            <EntregaCard
+              key={e.Id}
+              e={e}
+              onEdit={() => setModal({ mode: "editar", data: e })}
+              onDelete={() => setToDelete(e)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ---------- ÍNDICE: /entregas ---------- */}
+      {status === "ready" && !esDetalle && bloques.length === 0 && (
         <EmptyState
           icon={<Calendar size={22} />}
           title={filtro === "activos" ? "Aún no hay entregas" : "Sin entregas"}
-          text="Agrega la primera entrega con sus fechas y la info que se le comunica al cliente."
+          text="Agrega la primera entrega; se agrupa sola por proyecto."
           action={
             <Button onClick={() => setModal({ mode: "crear", data: {} })}>
               <Plus size={18} /> Nueva entrega
@@ -176,30 +264,19 @@ export default function Entregas() {
         />
       )}
 
-      {status === "ready" &&
-        grupos.map(([proyecto, list]) => (
-          <section key={proyecto} className="mb-7">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand-dark">
-              <MapPin size={16} /> {proyecto}
-            </h2>
-            <div className="seq cards-lift space-y-3">
-              {list.map((e) => (
-                <EntregaCard
-                  key={e.Id}
-                  e={e}
-                  onEdit={() => setModal({ mode: "editar", data: e })}
-                  onDelete={() => setToDelete(e)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+      {status === "ready" && !esDetalle && bloques.length > 0 && (
+        <div className="seq grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {bloques.map((b) => (
+            <ProyectoBlock key={b.slug} b={b} onClick={() => navigate(`/entregas/${b.slug}`)} />
+          ))}
+        </div>
+      )}
 
       {modal && (
         <EntregaModal
           mode={modal.mode}
           data={modal.data}
-          proyectos={proyectos}
+          proyectos={proyectosNombres}
           onClose={() => setModal(null)}
           onSaved={onSaved}
         />
@@ -228,6 +305,29 @@ export default function Entregas() {
         </p>
       </Modal>
     </Layout>
+  );
+}
+
+/* --------- Bloque de proyecto (índice) --------- */
+function ProyectoBlock({ b, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 text-left shadow-card transition-colors hover:border-brand-leaf/40 hover:bg-soft/30"
+    >
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-soft text-brand-dark">
+        <MapPin size={22} />
+      </span>
+      <div className="min-w-0">
+        <h3 className="truncate font-display text-lg font-bold text-brand-dark">{b.proyecto}</h3>
+        <p className="mt-0.5 text-sm text-muted">
+          {b.total} {b.total === 1 ? "entrega" : "entregas"}
+        </p>
+      </div>
+      <span className="mt-1 text-sm font-semibold text-brand-green transition-transform group-hover:translate-x-0.5">
+        Ver entregas →
+      </span>
+    </button>
   );
 }
 
@@ -368,8 +468,12 @@ function EntregaModal({ mode, data, proyectos, onClose, onSaved }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field
           label="Proyecto"
-          hint={touched && !proyecto.trim() ? "Obligatorio." : ""}
-          hintTone="amber"
+          hint={
+            touched && !proyecto.trim()
+              ? "Obligatorio."
+              : "Escribe uno nuevo o elige de la lista."
+          }
+          hintTone={touched && !proyecto.trim() ? "amber" : "muted"}
         >
           <Input
             placeholder="Ej. Ciudad Central Mérida"
