@@ -63,6 +63,14 @@ export default function App() {
         }
       />
       <Route
+        path="/materiales/:proyecto"
+        element={
+          <Protected>
+            <Materiales />
+          </Protected>
+        }
+      />
+      <Route
         path="/promociones"
         element={
           <Protected>
