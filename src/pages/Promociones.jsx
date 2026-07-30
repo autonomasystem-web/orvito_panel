@@ -34,6 +34,7 @@ export default function Promociones() {
   const [modal, setModal] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [showExpiradas, setShowExpiradas] = useState(false);
+  const [proyFiltro, setProyFiltro] = useState("__todos__");
 
   const load = async () => {
     setStatus("loading");
@@ -50,8 +51,29 @@ export default function Promociones() {
     load();
   }, []);
 
+  // Proyectos para el filtro: los de materiales + los que aparezcan en las promos
+  const proyectosFiltro = useMemo(() => {
+    const set = new Set(proyectos);
+    for (const p of items)
+      String(p.proyectos_aplica || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((x) => set.add(x));
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [proyectos, items]);
+
   const { vigentes, expiradas } = useMemo(() => {
-    const withEstado = items.map((p) => ({ ...p, _estado: estadoPromo(p) }));
+    // Una promo con proyectos_aplica vacío = aplica a TODOS los proyectos.
+    const enProyecto = (p) => {
+      if (proyFiltro === "__todos__") return true;
+      const aps = String(p.proyectos_aplica || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return aps.length === 0 || aps.includes(proyFiltro);
+    };
+    const withEstado = items.filter(enProyecto).map((p) => ({ ...p, _estado: estadoPromo(p) }));
     // orden: Vigente, Programada, Inactiva; Expiradas aparte
     const rank = { Vigente: 0, Programada: 1, Inactiva: 2 };
     const activos = withEstado
@@ -59,7 +81,7 @@ export default function Promociones() {
       .sort((a, b) => (rank[a._estado] ?? 3) - (rank[b._estado] ?? 3));
     const exp = withEstado.filter((p) => p._estado === "Expirada");
     return { vigentes: activos, expiradas: exp };
-  }, [items]);
+  }, [items, proyFiltro]);
 
   const onSaved = async (msg) => {
     setModal(null);
@@ -94,6 +116,27 @@ export default function Promociones() {
         <span className="h-1.5 w-1.5 rounded-full bg-brand-leaf" />
         Los cambios se reflejan en Orvito en el siguiente mensaje — sin despliegues, sin esperar.
       </div>
+
+      {status === "ready" && items.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <label className="text-sm text-muted">Proyecto:</label>
+          <select
+            value={proyFiltro}
+            onChange={(e) => setProyFiltro(e.target.value)}
+            className="rounded-xl border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-brand-leaf"
+          >
+            <option value="__todos__">Todos los proyectos</option>
+            {proyectosFiltro.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          {proyFiltro !== "__todos__" && (
+            <span className="text-xs text-muted2">Incluye las que aplican a "todos".</span>
+          )}
+        </div>
+      )}
 
       {status === "loading" && (
         <div className="space-y-4">
@@ -130,6 +173,12 @@ export default function Promociones() {
 
       {status === "ready" && items.length > 0 && (
         <div className="seq cards-lift space-y-4">
+          {vigentes.length === 0 && expiradas.length === 0 && (
+            <p className="rounded-xl bg-softer px-4 py-6 text-center text-sm text-muted">
+              No hay promociones para <b className="text-ink">{proyFiltro}</b>. Prueba con "Todos los
+              proyectos".
+            </p>
+          )}
           {vigentes.map((p) => (
             <PromoCard
               key={p.Id}
