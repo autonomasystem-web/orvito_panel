@@ -135,6 +135,12 @@ export const Upload = ({ size }) => (
     <path d="M12 3v12M7 8l5-5 5 5" />
   </svg>
 );
+export const Download = ({ size, className }) => (
+  <svg {...base(size)} className={className}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="M7 10l5 5 5-5M12 15V3" />
+  </svg>
+);
 export const Newspaper = ({ size }) => (
   <svg {...base(size)}>
     <path d="M4 22h14a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a2 2 0 0 1-2-2V8" />

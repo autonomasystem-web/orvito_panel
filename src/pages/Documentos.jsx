@@ -14,7 +14,7 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Book, Save, Upload, Trash, Sparkles, Plus } from "../components/Icons.jsx";
+import { Book, Save, Upload, Download, Trash, Sparkles, Plus } from "../components/Icons.jsx";
 import {
   listarDocumentos,
   verDocumento,
@@ -259,6 +259,18 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
     toast.success(`Cargado ${f.name} — revisa y guarda.`);
   };
 
+  const descargarMd = () => {
+    const blob = new Blob([texto || ""], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(nombre || "documento").replace(/[^\w.-]+/g, "_")}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const html = useMemo(() => {
     try {
       return marked.parse(texto || "");
@@ -320,6 +332,11 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
           <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()} title="Cargar un .md">
             <Upload size={16} /> <span className="hidden sm:inline">Subir .md</span>
           </Button>
+          {!soyNuevo && (
+            <Button variant="ghost" size="sm" onClick={descargarMd} title="Descargar el .md">
+              <Download size={16} /> <span className="hidden sm:inline">Descargar</span>
+            </Button>
+          )}
           {!soyNuevo && (
             <Button
               variant="ghost"
