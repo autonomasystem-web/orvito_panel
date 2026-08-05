@@ -235,7 +235,7 @@ export default function Conversaciones() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,360px)_1fr]">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         {/* LISTA */}
         <div className={cx("min-w-0", mobileDetail && "hidden md:block")}>
           {status === "loading" && (
@@ -292,7 +292,7 @@ export default function Conversaciones() {
         </div>
 
         {/* DETALLE */}
-        <div className={cx("md:sticky md:top-6 md:self-start", !mobileDetail && "hidden md:block")}>
+        <div className={cx("min-w-0 md:sticky md:top-6 md:self-start", !mobileDetail && "hidden md:block")}>
           {!sel ? (
             <Card className="hidden min-h-[420px] flex-col items-center justify-center p-10 text-center md:flex md:h-[calc(100vh-7rem)]">
               <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-soft text-brand-dark">
