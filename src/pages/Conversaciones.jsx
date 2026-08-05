@@ -466,27 +466,15 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
   const [resumiendo, setResumiendo] = useState(false);
   const [refrescando, setRefrescando] = useState(false);
   const scrollRef = useRef(null);
-  const cardRef = useRef(null);
 
-  // Altura del chat ajustable por el usuario (arrastrando el borde inferior) y recordada.
+  // Limpieza única: versiones anteriores permitían arrastrar el chat y guardaban su
+  // altura (global) en localStorage, lo que dejaba el chat "alargado" en todos los hilos.
   useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const saved = Number(localStorage.getItem("orvito_chat_h"));
-    if (saved && saved > 300) el.style.height = saved + "px";
-    let raf = 0;
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const h = Math.round(el.getBoundingClientRect().height);
-        if (h > 300) localStorage.setItem("orvito_chat_h", String(h));
-      });
-    });
-    ro.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    try {
+      localStorage.removeItem("orvito_chat_h");
+    } catch {
+      /* noop */
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -586,8 +574,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
 
   return (
     <Card
-      ref={cardRef}
-      className="flex h-[75vh] min-h-[420px] max-h-[calc(100vh-72px)] flex-col overflow-hidden md:h-[calc(100vh-7rem)] md:resize-y"
+      className="flex h-[75vh] min-h-[420px] max-h-[calc(100vh-72px)] flex-col overflow-hidden md:h-[calc(100vh-7rem)]"
     >
       {/* header: en móvil se apila (identidad arriba, acciones abajo); en desktop, una fila */}
       <div className="flex flex-col gap-2 border-b border-line px-4 py-3 md:flex-row md:items-center md:gap-3">
