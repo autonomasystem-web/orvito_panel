@@ -47,6 +47,8 @@ export default function Conversaciones() {
   const toast = useToast();
   const [filtro, setFiltro] = useState("all");
   const [tipoFiltro, setTipoFiltro] = useState("todos"); // todos | interno | cliente
+  const [rolFiltro, setRolFiltro] = useState("todos"); // rol del CRM (Asesor Comercial, Coordinador…)
+  const [busqueda, setBusqueda] = useState("");
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading");
   const [pagina, setPagina] = useState(1);
@@ -58,8 +60,29 @@ export default function Conversaciones() {
   const [progTodos, setProgTodos] = useState({ done: 0, total: 0 });
   const [searchParams] = useSearchParams();
 
-  const itemsVisibles =
-    tipoFiltro === "todos" ? items : items.filter((c) => (c.tipo || "cliente") === tipoFiltro);
+  // Roles de internos presentes (para el filtro por tipo de usuario interno).
+  const roles = Array.from(
+    new Set(
+      items
+        .filter((c) => (c.tipo || "cliente") === "interno" && c.crm_rol)
+        .map((c) => c.crm_rol),
+    ),
+  ).sort();
+
+  const _norm = (s) => (s ?? "").toString().toLowerCase();
+  const _q = _norm(busqueda).trim();
+  const itemsVisibles = items.filter((c) => {
+    if (tipoFiltro !== "todos" && (c.tipo || "cliente") !== tipoFiltro) return false;
+    if (rolFiltro !== "todos" && c.crm_rol !== rolFiltro) return false;
+    if (
+      _q &&
+      !_norm(c.nombre_mostrar).includes(_q) &&
+      !_norm(c.contacto).includes(_q) &&
+      !_norm(c.telefono).includes(_q)
+    )
+      return false;
+    return true;
+  });
 
   // Abrir una conversación desde ?conv=ID (viene de Resúmenes IA)
   useEffect(() => {
@@ -218,7 +241,7 @@ export default function Conversaciones() {
       </div>
 
       {/* filtro interno vs cliente (según el CRM) */}
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         {TIPOS.map((t) => (
           <button
             key={t.value}
@@ -233,6 +256,44 @@ export default function Conversaciones() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      {/* búsqueda por nombre + filtro por rol de interno */}
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre o teléfono…"
+          className="w-full rounded-full border border-line bg-white px-4 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-green/30 sm:max-w-xs"
+        />
+        {roles.length > 0 && (
+          <select
+            value={rolFiltro}
+            onChange={(e) => setRolFiltro(e.target.value)}
+            title="Filtrar por tipo de usuario interno (rol del CRM)"
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-green/30"
+          >
+            <option value="todos">Todos los roles</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        )}
+        {(busqueda || rolFiltro !== "todos") && (
+          <button
+            type="button"
+            onClick={() => {
+              setBusqueda("");
+              setRolFiltro("todos");
+            }}
+            className="text-xs font-medium text-muted hover:text-ink"
+          >
+            Limpiar
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
@@ -262,9 +323,11 @@ export default function Conversaciones() {
               icon={<Chat size={22} />}
               title="Sin conversaciones"
               text={
-                tipoFiltro === "todos"
-                  ? "Cuando le escriban a Orvito, las verás aquí."
-                  : `No hay conversaciones de ${tipoFiltro === "interno" ? "asesores/internos" : "clientes"} en este filtro.`
+                busqueda || rolFiltro !== "todos"
+                  ? "Sin resultados para tu búsqueda o filtro."
+                  : tipoFiltro === "todos"
+                    ? "Cuando le escriban a Orvito, las verás aquí."
+                    : `No hay conversaciones de ${tipoFiltro === "interno" ? "asesores/internos" : "clientes"} en este filtro.`
               }
             />
           )}
