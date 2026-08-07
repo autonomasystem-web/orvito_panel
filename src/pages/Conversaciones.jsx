@@ -60,14 +60,27 @@ export default function Conversaciones() {
   const [progTodos, setProgTodos] = useState({ done: 0, total: 0 });
   const [searchParams] = useSearchParams();
 
-  // Roles de internos presentes (para el filtro por tipo de usuario interno).
-  const roles = Array.from(
-    new Set(
-      items
-        .filter((c) => (c.tipo || "cliente") === "interno" && c.crm_rol)
-        .map((c) => c.crm_rol),
-    ),
-  ).sort();
+  // Lista canónica de roles internos del CRM (para que NO falten en el filtro
+  // aunque no haya una conversación cargada de ese rol). Se unen los roles que
+  // aparezcan en las conversaciones cargadas, por si el CRM agrega uno nuevo.
+  const ROLES_CRM = [
+    "Super Admin",
+    "Director General",
+    "Director EVO",
+    "Director de Finanzas",
+    "Director de  Mkt",
+    "Gerente Ejecutivo",
+    "Gerente Comercial",
+    "Coordinador Comercial",
+    "Asesor Comercial",
+    "Asociados",
+    "Eventos Marketing",
+    "General",
+  ];
+  const rolesPresentes = items
+    .filter((c) => (c.tipo || "cliente") === "interno" && c.crm_rol)
+    .map((c) => c.crm_rol);
+  const roles = Array.from(new Set([...ROLES_CRM, ...rolesPresentes]));
 
   const _norm = (s) => (s ?? "").toString().toLowerCase();
   const _q = _norm(busqueda).trim();
