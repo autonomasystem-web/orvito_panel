@@ -59,6 +59,11 @@ export default function Conversaciones() {
   const [refrescandoTodos, setRefrescandoTodos] = useState(false);
   const [progTodos, setProgTodos] = useState({ done: 0, total: 0 });
   const [searchParams] = useSearchParams();
+  // Mientras el usuario busca/filtra, se pausan los auto-refresh de fondo
+  // (12s y 30s) para que NO reinicien la lista a la página 1 y borren las
+  // páginas que la búsqueda ya cargó. Ref porque el timer de 12s tiene closure
+  // fijo (deps []).
+  const filtrandoRef = useRef(false);
 
   // Lista canónica de roles internos del CRM (para que NO falten en el filtro
   // aunque no haya una conversación cargada de ese rol). Se unen los roles que
@@ -100,6 +105,7 @@ export default function Conversaciones() {
   // ¿Seguimos cargando páginas para el filtro/búsqueda? (para el estado vacío)
   const filtrandoActivo = busqueda.trim().length >= 2 || rolFiltro !== "todos";
   const buscandoMas = filtrandoActivo && (hayMas || loadingMore);
+  filtrandoRef.current = filtrandoActivo;
 
   // Abrir una conversación desde ?conv=ID (viene de Resúmenes IA)
   useEffect(() => {
@@ -143,7 +149,7 @@ export default function Conversaciones() {
   useEffect(() => {
     dispararSyncAvatares();
     const t = setTimeout(() => {
-      if (document.visibilityState === "visible") loadList({ silent: true });
+      if (document.visibilityState === "visible" && !filtrandoRef.current) loadList({ silent: true });
     }, 12000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,7 +158,12 @@ export default function Conversaciones() {
   // Auto-refresh suave cada 30s (solo pestaña visible y en página 1, para no perder scroll)
   useEffect(() => {
     const t = setInterval(() => {
-      if (document.visibilityState === "visible" && pagina === 1 && !refrescandoTodos) {
+      if (
+        document.visibilityState === "visible" &&
+        pagina === 1 &&
+        !refrescandoTodos &&
+        !filtrandoRef.current
+      ) {
         loadList({ silent: true });
       }
     }, 30000);
