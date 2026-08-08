@@ -97,6 +97,10 @@ export default function Conversaciones() {
     return true;
   });
 
+  // ¿Seguimos cargando páginas para el filtro/búsqueda? (para el estado vacío)
+  const filtrandoActivo = busqueda.trim().length >= 2 || rolFiltro !== "todos";
+  const buscandoMas = filtrandoActivo && (hayMas || loadingMore);
+
   // Abrir una conversación desde ?conv=ID (viene de Resúmenes IA)
   useEffect(() => {
     const c = searchParams.get("conv");
@@ -207,6 +211,17 @@ export default function Conversaciones() {
       setLoadingMore(false);
     }
   };
+
+  // Al buscar por nombre o filtrar por rol, carga en cascada el resto de
+  // páginas para poder encontrar conversaciones que aún no estaban cargadas
+  // (antes "buscar" solo miraba la primera página → salía "sin conversaciones").
+  useEffect(() => {
+    const filtrando = busqueda.trim().length >= 2 || rolFiltro !== "todos";
+    if (filtrando && hayMas && !loadingMore && !refrescandoTodos && status === "ready") {
+      cargarMas();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda, rolFiltro, hayMas, loadingMore, refrescandoTodos, status]);
 
   const abrir = (id) => {
     setSel(id);
@@ -331,19 +346,27 @@ export default function Conversaciones() {
             />
           )}
 
-          {status === "ready" && itemsVisibles.length === 0 && (
-            <EmptyState
-              icon={<Chat size={22} />}
-              title="Sin conversaciones"
-              text={
-                busqueda || rolFiltro !== "todos"
-                  ? "Sin resultados para tu búsqueda o filtro."
-                  : tipoFiltro === "todos"
-                    ? "Cuando le escriban a Orvito, las verás aquí."
-                    : `No hay conversaciones de ${tipoFiltro === "interno" ? "asesores/internos" : "clientes"} en este filtro.`
-              }
-            />
-          )}
+          {status === "ready" &&
+            itemsVisibles.length === 0 &&
+            (buscandoMas ? (
+              <EmptyState
+                icon={<Refresh size={22} className="animate-spin" />}
+                title="Buscando…"
+                text="Revisando todas las conversaciones."
+              />
+            ) : (
+              <EmptyState
+                icon={<Chat size={22} />}
+                title="Sin conversaciones"
+                text={
+                  busqueda || rolFiltro !== "todos"
+                    ? "Sin resultados para tu búsqueda o filtro."
+                    : tipoFiltro === "todos"
+                      ? "Cuando le escriban a Orvito, las verás aquí."
+                      : `No hay conversaciones de ${tipoFiltro === "interno" ? "asesores/internos" : "clientes"} en este filtro.`
+                }
+              />
+            ))}
 
           {status === "ready" && itemsVisibles.length > 0 && (
             <div className="seq space-y-2.5">
