@@ -131,100 +131,106 @@ export default function Documentos() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_1fr]">
-        {/* LISTA */}
-        <div className={cx("min-w-0", sel && "hidden md:block")}>
-          <div className="mb-3">
-            <SearchInput
-              placeholder="Buscar documento…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-
-          {status === "loading" && (
-            <div className="space-y-2">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-xl" />
-              ))}
-            </div>
-          )}
-          {status === "error" && (
-            <ErrorState title="No pudimos cargar los documentos" onRetry={load} />
-          )}
-          {status === "ready" && filtered.length === 0 && (
-            <EmptyState
-              icon={<Book size={22} />}
-              title={q ? "Sin resultados" : "Aún no hay documentos"}
-              text="Crea el primero o súbelo desde el editor."
-            />
-          )}
-          {status === "ready" &&
-            filtered.length > 0 &&
-            (q.trim() ? (
-              /* Búsqueda: lista plana de coincidencias (todos los proyectos) */
-              <div className="seq space-y-2">{filtered.map(docBtn)}</div>
-            ) : proyectoSel ? (
-              /* Nivel 2: documentos del proyecto abierto */
-              <div className="seq space-y-2">
-                <button
-                  onClick={() => {
-                    setProyectoSel(null);
-                    setSel(null);
-                  }}
-                  className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-dark hover:underline"
-                >
-                  ← Proyectos
-                </button>
-                <h3 className="mb-1 px-1 text-sm font-bold text-ink">{proyLabel(proyectoSel)}</h3>
-                {(grupos.find((g) => g.proyecto === proyectoSel)?.items ?? []).map(docBtn)}
-              </div>
-            ) : (
-              /* Nivel 1: bloques de proyecto */
-              <div className="grid grid-cols-1 gap-3">
-                {grupos.map(({ proyecto, items }) => (
-                  <button
-                    key={proyecto}
-                    onClick={() => abrirProyecto(proyecto, items)}
-                    className="flex items-center gap-3 rounded-xl border border-line bg-white p-4 text-left transition-colors hover:border-brand-leaf/50 hover:bg-softer"
-                  >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-soft text-brand-dark">
-                      <Folder size={20} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{proyLabel(proyecto)}</p>
-                      <p className="text-xs text-muted2">
-                        {items.length} {items.length === 1 ? "documento" : "documentos"}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-muted2">›</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-        </div>
-
-        {/* EDITOR */}
-        <div className={cx("md:sticky md:top-6 md:self-start", !sel && "hidden md:block")}>
-          {!sel ? (
-            <Card className="hidden min-h-[420px] flex-col items-center justify-center p-10 text-center md:flex md:h-[calc(100vh-7rem)]">
-              <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-soft text-brand-dark">
-                <Book size={22} />
-              </span>
-              <p className="text-sm text-muted">Elige un documento para ver y editar su markdown.</p>
-            </Card>
-          ) : (
-            <Editor
-              key={sel.nombre_doc}
-              nombre={sel.nombre_doc}
-              esNuevo={!!sel.nuevo}
-              onBack={() => setSel(null)}
-              onGuardado={onGuardado}
-              onEliminado={onEliminado}
-            />
-          )}
-        </div>
+      {/* Buscador (siempre visible) */}
+      <div className="mb-4 sm:max-w-md">
+        <SearchInput
+          placeholder="Buscar documento…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
       </div>
+
+      {status === "loading" && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+          ))}
+        </div>
+      )}
+      {status === "error" && (
+        <ErrorState title="No pudimos cargar los documentos" onRetry={load} />
+      )}
+      {status === "ready" && filtered.length === 0 && (
+        <EmptyState
+          icon={<Book size={22} />}
+          title={q ? "Sin resultados" : "Aún no hay documentos"}
+          text="Crea el primero o súbelo desde el editor."
+        />
+      )}
+
+      {status === "ready" &&
+        filtered.length > 0 &&
+        (!proyectoSel && !q.trim() ? (
+          /* NIVEL 1 — bloques de proyecto a lo ancho (estilo Materiales) */
+          <div className="seq grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {grupos.map(({ proyecto, items }) => (
+              <button
+                key={proyecto}
+                onClick={() => abrirProyecto(proyecto, items)}
+                className="flex flex-col rounded-2xl border border-line bg-white p-5 text-left shadow-card transition-shadow hover:shadow-lg"
+              >
+                <span className="mb-3 grid size-12 place-items-center rounded-xl bg-soft text-brand-dark">
+                  <Folder size={22} />
+                </span>
+                <p className="text-lg font-bold text-brand-dark">{proyLabel(proyecto)}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {items.length} {items.length === 1 ? "documento" : "documentos"}
+                </p>
+                <span className="mt-3 text-sm font-semibold text-brand-green">
+                  Ver documentos →
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* NIVEL 2 / búsqueda — lista de docs + editor del md */
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_1fr]">
+            {/* LISTA */}
+            <div className={cx("min-w-0", sel && "hidden md:block")}>
+              {proyectoSel && !q.trim() && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => {
+                      setProyectoSel(null);
+                      setSel(null);
+                    }}
+                    className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-dark hover:underline"
+                  >
+                    ← Proyectos
+                  </button>
+                  <h3 className="px-1 text-sm font-bold text-ink">{proyLabel(proyectoSel)}</h3>
+                </div>
+              )}
+              <div className="seq space-y-2">
+                {(q.trim()
+                  ? filtered
+                  : grupos.find((g) => g.proyecto === proyectoSel)?.items ?? []
+                ).map(docBtn)}
+              </div>
+            </div>
+
+            {/* EDITOR */}
+            <div className={cx("md:sticky md:top-6 md:self-start", !sel && "hidden md:block")}>
+              {!sel ? (
+                <Card className="hidden min-h-[420px] flex-col items-center justify-center p-10 text-center md:flex md:h-[calc(100vh-7rem)]">
+                  <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-soft text-brand-dark">
+                    <Book size={22} />
+                  </span>
+                  <p className="text-sm text-muted">Elige un documento para ver y editar su markdown.</p>
+                </Card>
+              ) : (
+                <Editor
+                  key={sel.nombre_doc}
+                  nombre={sel.nombre_doc}
+                  esNuevo={!!sel.nuevo}
+                  onBack={() => setSel(null)}
+                  onGuardado={onGuardado}
+                  onEliminado={onEliminado}
+                />
+              )}
+            </div>
+          </div>
+        ))}
 
       {/* modal nuevo documento */}
       <NuevoModal open={nuevo} onClose={() => setNuevo(false)} onCrear={abrirNuevo} />
