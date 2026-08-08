@@ -14,7 +14,7 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Book, Save, Upload, Download, Trash, Sparkles, Plus } from "../components/Icons.jsx";
+import { Book, Save, Upload, Download, Trash, Sparkles, Plus, Folder } from "../components/Icons.jsx";
 import {
   listarDocumentos,
   verDocumento,
@@ -39,6 +39,7 @@ export default function Documentos() {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(null); // nombre_doc seleccionado
   const [nuevo, setNuevo] = useState(false); // modal nuevo
+  const [proyectoSel, setProyectoSel] = useState(null); // proyecto (categoría) abierto
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -71,6 +72,17 @@ export default function Documentos() {
       .sort((a, b) => a.proyecto.localeCompare(b.proyecto, "es"));
   }, [filtered]);
 
+  // Nombre bonito del proyecto: "ccm" -> "CCM", "riviera_maya" -> "Riviera Maya".
+  const proyLabel = (c) => {
+    const s = String(c || "General").replace(/_/g, " ").trim();
+    return s.length <= 4 ? s.toUpperCase() : s.replace(/\b\w/g, (m) => m.toUpperCase());
+  };
+  // Al abrir un bloque: si tiene 1 doc, va directo al md; si tiene varios, muestra su lista.
+  const abrirProyecto = (proyecto, items) => {
+    setProyectoSel(proyecto);
+    setSel(items.length === 1 ? { nombre_doc: items[0].nombre_doc } : null);
+  };
+
   const abrirNuevo = (nombre) => {
     const nd = normaliza(nombre);
     setNuevo(false);
@@ -88,6 +100,24 @@ export default function Documentos() {
   };
 
   const selName = sel?.nombre_doc || null;
+
+  const docBtn = (d) => (
+    <button
+      key={d.nombre_doc}
+      onClick={() => setSel({ nombre_doc: d.nombre_doc })}
+      className={cx(
+        "flex w-full items-center gap-2 rounded-xl border p-3 text-left transition-colors",
+        selName === d.nombre_doc
+          ? "border-brand-leaf/50 bg-soft/60"
+          : "border-line bg-white hover:bg-softer"
+      )}
+    >
+      <span className="shrink-0 text-brand-green">
+        <Book size={16} />
+      </span>
+      <span className="truncate text-sm font-medium text-ink">{d.nombre_doc}</span>
+    </button>
+  );
 
   return (
     <Layout>
@@ -129,45 +159,49 @@ export default function Documentos() {
               text="Crea el primero o súbelo desde el editor."
             />
           )}
-          {status === "ready" && filtered.length > 0 && (
-            <div className="seq space-y-5">
-              {grupos.map(({ proyecto, items }) => (
-                <div key={proyecto}>
-                  <div className="mb-2 flex items-center gap-2 px-1">
-                    <h3 className="truncate text-xs font-bold uppercase tracking-wide text-brand-dark">
-                      {proyecto}
-                    </h3>
-                    <span className="shrink-0 rounded-full bg-soft px-1.5 py-0.5 text-[10px] font-semibold text-brand-dark">
-                      {items.length}
+          {status === "ready" &&
+            filtered.length > 0 &&
+            (q.trim() ? (
+              /* Búsqueda: lista plana de coincidencias (todos los proyectos) */
+              <div className="seq space-y-2">{filtered.map(docBtn)}</div>
+            ) : proyectoSel ? (
+              /* Nivel 2: documentos del proyecto abierto */
+              <div className="seq space-y-2">
+                <button
+                  onClick={() => {
+                    setProyectoSel(null);
+                    setSel(null);
+                  }}
+                  className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-dark hover:underline"
+                >
+                  ← Proyectos
+                </button>
+                <h3 className="mb-1 px-1 text-sm font-bold text-ink">{proyLabel(proyectoSel)}</h3>
+                {(grupos.find((g) => g.proyecto === proyectoSel)?.items ?? []).map(docBtn)}
+              </div>
+            ) : (
+              /* Nivel 1: bloques de proyecto */
+              <div className="grid grid-cols-1 gap-3">
+                {grupos.map(({ proyecto, items }) => (
+                  <button
+                    key={proyecto}
+                    onClick={() => abrirProyecto(proyecto, items)}
+                    className="flex items-center gap-3 rounded-xl border border-line bg-white p-4 text-left transition-colors hover:border-brand-leaf/50 hover:bg-softer"
+                  >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-soft text-brand-dark">
+                      <Folder size={20} />
                     </span>
-                  </div>
-                  <div className="space-y-2">
-                    {items.map((d) => (
-                      <button
-                        key={d.nombre_doc}
-                        onClick={() => setSel({ nombre_doc: d.nombre_doc })}
-                        className={cx(
-                          "w-full rounded-xl border p-3 text-left transition-colors",
-                          selName === d.nombre_doc
-                            ? "border-brand-leaf/50 bg-soft/60"
-                            : "border-line bg-white hover:bg-softer"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="shrink-0 text-brand-green">
-                            <Book size={16} />
-                          </span>
-                          <span className="truncate text-sm font-medium text-ink">
-                            {d.nombre_doc}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{proyLabel(proyecto)}</p>
+                      <p className="text-xs text-muted2">
+                        {items.length} {items.length === 1 ? "documento" : "documentos"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-muted2">›</span>
+                  </button>
+                ))}
+              </div>
+            ))}
         </div>
 
         {/* EDITOR */}
