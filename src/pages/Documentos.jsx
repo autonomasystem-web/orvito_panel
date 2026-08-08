@@ -58,6 +58,19 @@ export default function Documentos() {
     return docs.filter((d) => !t || d.nombre_doc.toLowerCase().includes(t));
   }, [docs, q]);
 
+  // Agrupa los documentos por proyecto (categoría), como en Materiales.
+  const grupos = useMemo(() => {
+    const m = new Map();
+    for (const d of filtered) {
+      const p = String(d.categoria || "").trim() || "General";
+      if (!m.has(p)) m.set(p, []);
+      m.get(p).push(d);
+    }
+    return [...m.entries()]
+      .map(([proyecto, items]) => ({ proyecto, items }))
+      .sort((a, b) => a.proyecto.localeCompare(b.proyecto, "es"));
+  }, [filtered]);
+
   const abrirNuevo = (nombre) => {
     const nd = normaliza(nombre);
     setNuevo(false);
@@ -117,30 +130,41 @@ export default function Documentos() {
             />
           )}
           {status === "ready" && filtered.length > 0 && (
-            <div className="seq space-y-2">
-              {filtered.map((d) => (
-                <button
-                  key={d.nombre_doc}
-                  onClick={() => setSel({ nombre_doc: d.nombre_doc })}
-                  className={cx(
-                    "w-full rounded-xl border p-3 text-left transition-colors",
-                    selName === d.nombre_doc
-                      ? "border-brand-leaf/50 bg-soft/60"
-                      : "border-line bg-white hover:bg-softer"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-brand-green">
-                      <Book size={16} />
+            <div className="seq space-y-5">
+              {grupos.map(({ proyecto, items }) => (
+                <div key={proyecto}>
+                  <div className="mb-2 flex items-center gap-2 px-1">
+                    <h3 className="truncate text-xs font-bold uppercase tracking-wide text-brand-dark">
+                      {proyecto}
+                    </h3>
+                    <span className="shrink-0 rounded-full bg-soft px-1.5 py-0.5 text-[10px] font-semibold text-brand-dark">
+                      {items.length}
                     </span>
-                    <span className="truncate text-sm font-medium text-ink">{d.nombre_doc}</span>
                   </div>
-                  {d.categoria && (
-                    <span className="ml-6 mt-0.5 inline-block rounded-full bg-soft px-2 py-0.5 text-[10px] font-medium text-brand-dark">
-                      {d.categoria}
-                    </span>
-                  )}
-                </button>
+                  <div className="space-y-2">
+                    {items.map((d) => (
+                      <button
+                        key={d.nombre_doc}
+                        onClick={() => setSel({ nombre_doc: d.nombre_doc })}
+                        className={cx(
+                          "w-full rounded-xl border p-3 text-left transition-colors",
+                          selName === d.nombre_doc
+                            ? "border-brand-leaf/50 bg-soft/60"
+                            : "border-line bg-white hover:bg-softer"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 text-brand-green">
+                            <Book size={16} />
+                          </span>
+                          <span className="truncate text-sm font-medium text-ink">
+                            {d.nombre_doc}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
