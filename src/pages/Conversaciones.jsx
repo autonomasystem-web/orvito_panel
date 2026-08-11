@@ -16,6 +16,7 @@ import RichText, { stripFormato } from "../components/RichText.jsx";
 import mascotaOrvito from "../assets/orvito-mascota.webp";
 import {
   listarConversaciones,
+  conteoConversaciones,
   verConversacion,
   cambiarEstadoConversacion,
   marcarLeidaConversacion,
@@ -146,33 +147,32 @@ export default function Conversaciones() {
     loadList();
   }, [loadList]);
 
-  // Conteo REAL de usuarios: recorre TODAS las páginas del filtro de estado actual
-  // solo para contar (NO las vuelca a la lista, así la paginación no se rompe).
-  // Distingue internos (asesores/coordinadores/… del CRM) vs externos (clientes).
+  // Conteo REAL de usuarios (total/internos/externos). El gateway lo calcula en UNA
+  // sola llamada (recorre Chatwoot del lado servidor), así que ya no recorremos todas
+  // las páginas desde el navegador. Se cachea en localStorage para pintarlo al instante
+  // en la siguiente visita mientras se refresca en segundo plano.
   useEffect(() => {
     let cancel = false;
-    setConteo(null);
+    const cacheKey = `orvito_conteo_${filtro}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      setConteo(cached && typeof cached.total === "number" ? cached : null);
+    } catch {
+      setConteo(null);
+    }
     (async () => {
       try {
-        let page = 1;
-        let more = true;
-        let total = 0;
-        let internos = 0;
-        const vistos = new Set();
-        while (more && !cancel && page <= 80) {
-          const r = await listarConversaciones({ status: filtro, page });
-          for (const c of r.conversaciones) {
-            if (vistos.has(c.id)) continue;
-            vistos.add(c.id);
-            total++;
-            if ((c.tipo || "cliente") === "interno") internos++;
+        const r = await conteoConversaciones(filtro);
+        if (!cancel) {
+          setConteo(r);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(r));
+          } catch {
+            /* localStorage lleno o bloqueado: no pasa nada */
           }
-          more = r.hayMas;
-          page = (r.pagina || page) + 1;
         }
-        if (!cancel) setConteo({ total, internos, externos: total - internos });
       } catch {
-        /* conteo silencioso: si falla, simplemente no se muestra */
+        /* conteo silencioso: si falla, se queda con el cacheado (o vacío) */
       }
     })();
     return () => {

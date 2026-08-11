@@ -191,6 +191,16 @@ export async function listarConversaciones({ status = "all", page = 1 } = {}) {
     hayMas: Boolean(r.hay_mas),
   };
 }
+// Conteo total de usuarios (total/internos/externos) calculado por el gateway
+// en UNA sola llamada (rápido) en vez de recorrer todas las páginas desde el navegador.
+export async function conteoConversaciones(status = "all") {
+  const r = await call("conteo_conversaciones", { status });
+  return {
+    total: Number(r.total) || 0,
+    internos: Number(r.internos) || 0,
+    externos: Number(r.externos) || 0,
+  };
+}
 export async function verConversacion(id) {
   const r = await call("ver_conversacion", { id });
   return {
