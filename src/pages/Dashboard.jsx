@@ -57,8 +57,12 @@ function saludo() {
 }
 
 const RANGOS = [
+  { value: "1d", label: "Hoy" },
   { value: "7d", label: "7 días" },
+  { value: "15d", label: "15 días" },
   { value: "30d", label: "30 días" },
+  { value: "60d", label: "2 meses" },
+  { value: "365d", label: "1 año" },
 ];
 
 export default function Dashboard() {
@@ -111,13 +115,13 @@ export default function Dashboard() {
             Cómo va Orvito: qué tan bien funciona y qué mueve en el negocio.
           </p>
         </div>
-        <div className="inline-flex rounded-xl border border-line bg-white p-1">
+        <div className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-white p-1">
           {RANGOS.map((r) => (
             <button
               key={r.value}
               onClick={() => setRango(r.value)}
               className={cx(
-                "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors",
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                 rango === r.value ? "bg-soft text-brand-dark" : "text-muted hover:text-ink"
               )}
             >
@@ -576,7 +580,7 @@ function SerieDiaria({ serie }) {
               strokeWidth={2.5}
               fill="url(#gConv)"
               name="Conversaciones"
-              dot={{ r: 2.5, fill: C.dark, strokeWidth: 0 }}
+              dot={serie.length > 45 ? false : { r: 2.5, fill: C.dark, strokeWidth: 0 }}
               activeDot={{ r: 4 }}
               isAnimationActive={false}
             />
