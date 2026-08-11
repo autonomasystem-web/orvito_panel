@@ -58,6 +58,8 @@ export default function Conversaciones() {
   const [mobileDetail, setMobileDetail] = useState(false);
   const [refrescandoTodos, setRefrescandoTodos] = useState(false);
   const [progTodos, setProgTodos] = useState({ done: 0, total: 0 });
+  // Conteo REAL (total / internos / externos) de TODAS las páginas del filtro de estado.
+  const [conteo, setConteo] = useState(null);
   const [searchParams] = useSearchParams();
   // Mientras el usuario busca/filtra, se pausan los auto-refresh de fondo
   // (12s y 30s) para que NO reinicien la lista a la página 1 y borren las
@@ -143,6 +145,40 @@ export default function Conversaciones() {
   useEffect(() => {
     loadList();
   }, [loadList]);
+
+  // Conteo REAL de usuarios: recorre TODAS las páginas del filtro de estado actual
+  // solo para contar (NO las vuelca a la lista, así la paginación no se rompe).
+  // Distingue internos (asesores/coordinadores/… del CRM) vs externos (clientes).
+  useEffect(() => {
+    let cancel = false;
+    setConteo(null);
+    (async () => {
+      try {
+        let page = 1;
+        let more = true;
+        let total = 0;
+        let internos = 0;
+        const vistos = new Set();
+        while (more && !cancel && page <= 80) {
+          const r = await listarConversaciones({ status: filtro, page });
+          for (const c of r.conversaciones) {
+            if (vistos.has(c.id)) continue;
+            vistos.add(c.id);
+            total++;
+            if ((c.tipo || "cliente") === "interno") internos++;
+          }
+          more = r.hayMas;
+          page = (r.pagina || page) + 1;
+        }
+        if (!cancel) setConteo({ total, internos, externos: total - internos });
+      } catch {
+        /* conteo silencioso: si falla, simplemente no se muestra */
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [filtro]);
 
   // Al entrar al panel: dispara el sync de avatares (toma asesores nuevos sin esperar el cron).
   // Throttled a 5 min. A los 12s recarga suave: para entonces el sync ya actualizó la caché.
@@ -260,6 +296,13 @@ export default function Conversaciones() {
           </Button>
         }
       />
+
+      {/* Contador de usuarios: total / internos / externos (del filtro de estado) */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:max-w-md">
+        <ConteoTile label="Usuarios" value={conteo?.total} tone="dark" cargando={conteo === null} />
+        <ConteoTile label="Internos" value={conteo?.internos} tone="green" cargando={conteo === null} />
+        <ConteoTile label="Externos" value={conteo?.externos} tone="muted" cargando={conteo === null} />
+      </div>
 
       {/* filtros por estado */}
       <div className="mb-3 flex flex-wrap gap-2">
@@ -424,6 +467,21 @@ export default function Conversaciones() {
 }
 
 /* ---------- item de lista ---------- */
+/** Mini-tarjeta de conteo: total de usuarios / internos / externos. */
+function ConteoTile({ label, value, tone = "dark", cargando }) {
+  const tones = {
+    dark: "bg-brand-dark text-white",
+    green: "bg-brand-green/10 text-brand-green ring-1 ring-brand-green/25",
+    muted: "bg-soft text-brand-dark ring-1 ring-line",
+  };
+  return (
+    <div className={cx("rounded-xl px-3 py-2", tones[tone] || tones.dark)}>
+      <div className="text-lg font-bold leading-none">{cargando ? "…" : value ?? 0}</div>
+      <div className="mt-1 text-[11px] font-medium opacity-80">{label}</div>
+    </div>
+  );
+}
+
 /** Etiqueta interno (con su rol del CRM) vs cliente. */
 function TipoBadge({ tipo, rol, size = "sm" }) {
   const esInterno = tipo === "interno";
