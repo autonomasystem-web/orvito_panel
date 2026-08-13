@@ -519,26 +519,33 @@ function UserGlyph({ size = 22 }) {
     </svg>
   );
 }
+// Memoria de sesión: fotos que YA cargaron bien alguna vez (en la lista o el detalle).
+// Una vez que una foto cargó, se recuerda su URL y ya no se vuelve a "perder" aunque el
+// Storage tosa en un refresco: se pinta directo (cache-hit del navegador, 7 días).
+const avatarOk = new Set();
+
 function Avatar({ src, name, tipo, size = 44 }) {
   const esInterno = tipo === "interno";
   // Asesor interno sin foto real → mascota Orvito (default de marca). Cliente sin foto → iniciales.
   const effectiveSrc = src || (esInterno ? mascotaOrvito : null);
   const [attempt, setAttempt] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(() => !!effectiveSrc && avatarOk.has(effectiveSrc));
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
     setAttempt(0);
-    setLoaded(false);
+    // Si esta foto ya cargó antes en la sesión, arranca como "cargada" (sin reintentos ni flicker).
+    setLoaded(!!effectiveSrc && avatarOk.has(effectiveSrc));
     setGaveUp(false);
   }, [effectiveSrc]);
   // El Storage self-hosted a veces tira peticiones cuando la lista pide muchas fotos a la vez;
   // si la imagen falla o se queda colgada, se reintenta (con cache-bust) hasta 3 veces.
+  // Timeout amplio (10s) para no abandonar una carga lenta-pero-buena bajo ráfaga.
   useEffect(() => {
     if (!effectiveSrc || loaded || gaveUp) return;
     const t = setTimeout(() => {
       if (attempt >= 3) setGaveUp(true);
       else setAttempt((a) => a + 1);
-    }, 4500);
+    }, 10000);
     return () => clearTimeout(t);
   }, [effectiveSrc, attempt, loaded, gaveUp]);
   const ini = initialsOf(name);
@@ -563,7 +570,10 @@ function Avatar({ src, name, tipo, size = 44 }) {
           src={bust}
           alt={name || "Foto de perfil"}
           loading="lazy"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            if (effectiveSrc) avatarOk.add(effectiveSrc);
+            setLoaded(true);
+          }}
           onError={() => {
             if (attempt >= 3) setGaveUp(true);
             else setAttempt((a) => a + 1);
