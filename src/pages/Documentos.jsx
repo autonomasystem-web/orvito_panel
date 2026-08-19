@@ -14,12 +14,17 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Book, Save, Upload, Download, Trash, Sparkles, Plus, Folder } from "../components/Icons.jsx";
+import { Book, Save, Upload, Download, Trash, Sparkles, Plus, Folder, Pencil, Dots } from "../components/Icons.jsx";
 import {
   listarDocumentos,
   verDocumento,
   guardarDocumento,
   eliminarDocumento,
+  crearCarpeta,
+  renombrarCarpeta,
+  moverDocumento,
+  eliminarCarpeta,
+  guardarOrdenCarpetas,
 } from "../lib/api.js";
 
 marked.setOptions({ breaks: false, gfm: true });
@@ -35,16 +40,24 @@ const normaliza = (s) =>
 export default function Documentos() {
   const toast = useToast();
   const [docs, setDocs] = useState([]);
+  const [orden, setOrden] = useState([]); // orden guardado de las carpetas (incluye vacías)
   const [status, setStatus] = useState("loading");
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(null); // nombre_doc seleccionado
-  const [nuevo, setNuevo] = useState(false); // modal nuevo
+  const [nuevo, setNuevo] = useState(false); // modal nuevo documento
+  const [nuevaCarpeta, setNuevaCarpeta] = useState(false); // modal nueva carpeta
   const [proyectoSel, setProyectoSel] = useState(null); // proyecto (categoría) abierto
+  const [menuAbierto, setMenuAbierto] = useState(null); // carpeta con el menú ⋮ abierto
+  const [renombrar, setRenombrar] = useState(null); // carpeta a renombrar
+  const [aEliminar, setAEliminar] = useState(null); // carpeta a eliminar
+  const dragIdx = useRef(null);
 
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      setDocs(await listarDocumentos());
+      const r = await listarDocumentos();
+      setDocs(r.documentos);
+      setOrden(r.carpetas_orden);
       setStatus("ready");
     } catch (e) {
       setStatus("error");
@@ -59,18 +72,89 @@ export default function Documentos() {
     return docs.filter((d) => !t || d.nombre_doc.toLowerCase().includes(t));
   }, [docs, q]);
 
-  // Agrupa los documentos por proyecto (categoría), como en Materiales.
+  // Agrupa por carpeta (categoría) + incluye carpetas vacías del registro,
+  // ordenadas por el `orden` guardado (las no listadas van al final alfabético).
   const grupos = useMemo(() => {
     const m = new Map();
     for (const d of filtered) {
-      const p = String(d.categoria || "").trim() || "General";
+      const p = String(d.categoria || "").trim() || "general";
       if (!m.has(p)) m.set(p, []);
       m.get(p).push(d);
     }
+    if (!q.trim()) for (const c of orden) if (c && !m.has(c)) m.set(c, []);
+    const pos = (p) => {
+      const i = orden.indexOf(p);
+      return i < 0 ? 9999 : i;
+    };
     return [...m.entries()]
       .map(([proyecto, items]) => ({ proyecto, items }))
-      .sort((a, b) => a.proyecto.localeCompare(b.proyecto, "es"));
-  }, [filtered]);
+      .sort((a, b) => pos(a.proyecto) - pos(b.proyecto) || a.proyecto.localeCompare(b.proyecto, "es"));
+  }, [filtered, orden, q]);
+
+  const todasCarpetas = useMemo(() => grupos.map((g) => g.proyecto), [grupos]);
+
+  // Reordenar carpetas por arrastre → guarda el nuevo orden.
+  const soltarEn = async (destIdx) => {
+    const from = dragIdx.current;
+    dragIdx.current = null;
+    if (from == null || from === destIdx) return;
+    const nombres = grupos.map((g) => g.proyecto);
+    const [mv] = nombres.splice(from, 1);
+    nombres.splice(destIdx, 0, mv);
+    setOrden(nombres);
+    try {
+      await guardarOrdenCarpetas(nombres);
+    } catch (e) {
+      toast.error("No se pudo guardar el orden.");
+      load();
+    }
+  };
+
+  const crearNuevaCarpeta = async (nombre) => {
+    setNuevaCarpeta(false);
+    const nd = normaliza(nombre);
+    if (!nd) return;
+    try {
+      await crearCarpeta(nd);
+      toast.success(`Carpeta "${proyLabel(nd)}" creada.`);
+      await load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+  const hacerRenombrar = async (actual, nuevoNombre) => {
+    setRenombrar(null);
+    const nd = normaliza(nuevoNombre);
+    if (!nd || nd === actual) return;
+    try {
+      await renombrarCarpeta(actual, nd);
+      if (proyectoSel === actual) setProyectoSel(nd);
+      toast.success("Carpeta renombrada.");
+      await load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+  const hacerEliminarCarpeta = async (nombre, moverA) => {
+    setAEliminar(null);
+    try {
+      await eliminarCarpeta(nombre, moverA);
+      if (proyectoSel === nombre) setProyectoSel(null);
+      toast.success(moverA ? "Documentos movidos y carpeta eliminada." : "Carpeta eliminada.");
+      await load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+  const moverDoc = async (nombreDoc, categoria) => {
+    try {
+      await moverDocumento(nombreDoc, categoria);
+      toast.success(`Movido a "${proyLabel(categoria)}".`);
+      await load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
 
   // Nombre bonito del proyecto: "ccm" -> "CCM", "riviera_maya" -> "Riviera Maya".
   const proyLabel = (c) => {
@@ -101,33 +185,20 @@ export default function Documentos() {
 
   const selName = sel?.nombre_doc || null;
 
-  const docBtn = (d) => (
-    <button
-      key={d.nombre_doc}
-      onClick={() => setSel({ nombre_doc: d.nombre_doc })}
-      className={cx(
-        "flex w-full items-center gap-2 rounded-xl border p-3 text-left transition-colors",
-        selName === d.nombre_doc
-          ? "border-brand-leaf/50 bg-soft/60"
-          : "border-line bg-white hover:bg-softer"
-      )}
-    >
-      <span className="shrink-0 text-brand-green">
-        <Book size={16} />
-      </span>
-      <span className="truncate text-sm font-medium text-ink">{d.nombre_doc}</span>
-    </button>
-  );
-
   return (
     <Layout>
       <PageHeader
         title="Base de conocimiento"
         subtitle="Lo que Orvito sabe. Edita el markdown y se reindexa solo en el agente."
         action={
-          <Button onClick={() => setNuevo(true)}>
-            <Plus size={18} /> Nuevo documento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setNuevaCarpeta(true)}>
+              <Folder size={18} /> Nueva carpeta
+            </Button>
+            <Button onClick={() => setNuevo(true)}>
+              <Plus size={18} /> Nuevo documento
+            </Button>
+          </div>
         }
       />
 
@@ -162,26 +233,70 @@ export default function Documentos() {
         filtered.length > 0 &&
         (!proyectoSel && !q.trim() ? (
           /* NIVEL 1 — bloques de proyecto a lo ancho (estilo Materiales) */
-          <div className="seq grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {grupos.map(({ proyecto, items }) => (
-              <button
-                key={proyecto}
-                onClick={() => abrirProyecto(proyecto, items)}
-                className="flex flex-col rounded-2xl border border-line bg-white p-5 text-left shadow-card transition-shadow hover:shadow-lg"
-              >
-                <span className="mb-3 grid size-12 place-items-center rounded-xl bg-soft text-brand-dark">
-                  <Folder size={22} />
-                </span>
-                <p className="text-lg font-bold text-brand-dark">{proyLabel(proyecto)}</p>
-                <p className="mt-1 text-sm text-muted">
-                  {items.length} {items.length === 1 ? "documento" : "documentos"}
-                </p>
-                <span className="mt-3 text-sm font-semibold text-brand-green">
-                  Ver documentos →
-                </span>
-              </button>
-            ))}
-          </div>
+          <>
+            <p className="mb-3 text-xs text-muted2">
+              Arrastra las carpetas para reordenarlas · usa el menú <Dots size={12} className="inline" /> para renombrar o eliminar.
+            </p>
+            <div className="seq grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {grupos.map(({ proyecto, items }, i) => (
+                <div
+                  key={proyecto}
+                  draggable={!q.trim()}
+                  onDragStart={() => (dragIdx.current = i)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => soltarEn(i)}
+                  onClick={() => abrirProyecto(proyecto, items)}
+                  className="relative flex cursor-pointer flex-col rounded-2xl border border-line bg-white p-5 text-left shadow-card transition-shadow hover:shadow-lg"
+                >
+                  <div className="absolute right-2 top-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuAbierto(menuAbierto === proyecto ? null : proyecto);
+                      }}
+                      className="rounded-lg p-1.5 text-muted hover:bg-soft hover:text-ink"
+                      aria-label="Opciones de carpeta"
+                    >
+                      <Dots size={18} />
+                    </button>
+                    {menuAbierto === proyecto && (
+                      <div
+                        className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => {
+                            setMenuAbierto(null);
+                            setRenombrar(proyecto);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-soft"
+                        >
+                          <Pencil size={15} /> Renombrar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMenuAbierto(null);
+                            setAEliminar(proyecto);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10"
+                        >
+                          <Trash size={15} /> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <span className="mb-3 grid size-12 place-items-center rounded-xl bg-soft text-brand-dark">
+                    <Folder size={22} />
+                  </span>
+                  <p className="text-lg font-bold text-brand-dark">{proyLabel(proyecto)}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {items.length} {items.length === 1 ? "documento" : "documentos"}
+                  </p>
+                  <span className="mt-3 text-sm font-semibold text-brand-green">Ver documentos →</span>
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           /* NIVEL 2 / búsqueda — lista de docs + editor del md */
           <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_1fr]">
@@ -205,7 +320,47 @@ export default function Documentos() {
                 {(q.trim()
                   ? filtered
                   : grupos.find((g) => g.proyecto === proyectoSel)?.items ?? []
-                ).map(docBtn)}
+                ).map((d) => (
+                  <div key={d.nombre_doc} className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSel({ nombre_doc: d.nombre_doc })}
+                      className={cx(
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-xl border p-3 text-left transition-colors",
+                        selName === d.nombre_doc
+                          ? "border-brand-leaf/50 bg-soft/60"
+                          : "border-line bg-white hover:bg-softer"
+                      )}
+                    >
+                      <span className="shrink-0 text-brand-green">
+                        <Book size={16} />
+                      </span>
+                      <span className="truncate text-sm font-medium text-ink">{d.nombre_doc}</span>
+                      {q.trim() && d.categoria && (
+                        <span className="ml-auto shrink-0 rounded-full bg-soft px-2 py-0.5 text-[10px] font-semibold text-brand-dark">
+                          {proyLabel(d.categoria)}
+                        </span>
+                      )}
+                    </button>
+                    <select
+                      title="Mover a otra carpeta"
+                      value=""
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) moverDoc(d.nombre_doc, v);
+                      }}
+                      className="shrink-0 rounded-lg border border-line bg-white px-2 py-2 text-xs text-muted hover:text-ink"
+                    >
+                      <option value="">Mover a…</option>
+                      {todasCarpetas
+                        .filter((c) => c !== (String(d.categoria || "").trim() || "general"))
+                        .map((c) => (
+                          <option key={c} value={c}>
+                            {proyLabel(c)}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -232,8 +387,32 @@ export default function Documentos() {
           </div>
         ))}
 
-      {/* modal nuevo documento */}
+      {/* clic afuera cierra el menú ⋮ de las carpetas */}
+      {menuAbierto && (
+        <div className="fixed inset-0 z-20" onClick={() => setMenuAbierto(null)} />
+      )}
+
+      {/* modales */}
       <NuevoModal open={nuevo} onClose={() => setNuevo(false)} onCrear={abrirNuevo} />
+      <NuevaCarpetaModal
+        open={nuevaCarpeta}
+        onClose={() => setNuevaCarpeta(false)}
+        onCrear={crearNuevaCarpeta}
+      />
+      <RenombrarCarpetaModal
+        carpeta={renombrar}
+        proyLabel={proyLabel}
+        onClose={() => setRenombrar(null)}
+        onRenombrar={hacerRenombrar}
+      />
+      <EliminarCarpetaModal
+        carpeta={aEliminar}
+        proyLabel={proyLabel}
+        carpetas={todasCarpetas}
+        conteo={grupos.find((g) => g.proyecto === aEliminar)?.items.length ?? 0}
+        onClose={() => setAEliminar(null)}
+        onEliminar={hacerEliminarCarpeta}
+      />
     </Layout>
   );
 }
@@ -518,6 +697,165 @@ function NuevoModal({ open, onClose, onCrear }) {
       <p className="text-xs text-muted2">
         Se abre un editor en blanco. Escribe (o sube un .md) y al guardar se indexa en el RAG.
       </p>
+    </Modal>
+  );
+}
+
+/* ---------------- Modal nueva carpeta ---------------- */
+function NuevaCarpetaModal({ open, onClose, onCrear }) {
+  const [nombre, setNombre] = useState("");
+  useEffect(() => {
+    if (open) setNombre("");
+  }, [open]);
+  const nd = normaliza(nombre);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Nueva carpeta"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={() => onCrear(nombre)} disabled={!nd}>
+            Crear carpeta
+          </Button>
+        </>
+      }
+    >
+      <Field
+        label="Nombre de la carpeta"
+        hint={nd ? `Se guardará como: ${nd}` : "Ej. Promociones, Riviera Maya…"}
+        hintTone={nd ? "brand" : "muted"}
+      >
+        <Input
+          placeholder="Ej. Promociones"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          autoFocus
+        />
+      </Field>
+      <p className="text-xs text-muted2">
+        La carpeta aparece vacía. Mueve documentos a ella o crea uno nuevo dentro.
+      </p>
+    </Modal>
+  );
+}
+
+/* ---------------- Modal renombrar carpeta ---------------- */
+function RenombrarCarpetaModal({ carpeta, proyLabel, onClose, onRenombrar }) {
+  const [nombre, setNombre] = useState("");
+  useEffect(() => {
+    setNombre(carpeta ? proyLabel(carpeta) : "");
+  }, [carpeta, proyLabel]);
+  const nd = normaliza(nombre);
+  return (
+    <Modal
+      open={!!carpeta}
+      onClose={onClose}
+      title="Renombrar carpeta"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={() => onRenombrar(carpeta, nombre)} disabled={!nd || nd === carpeta}>
+            Renombrar
+          </Button>
+        </>
+      }
+    >
+      <Field label="Nuevo nombre" hint={nd ? `Se guardará como: ${nd}` : ""} hintTone="brand">
+        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
+      </Field>
+      <p className="text-xs text-muted2">
+        Todos los documentos de esta carpeta quedan bajo el nuevo nombre.
+      </p>
+    </Modal>
+  );
+}
+
+/* ---------------- Modal eliminar carpeta ---------------- */
+function EliminarCarpetaModal({ carpeta, proyLabel, carpetas, conteo, onClose, onEliminar }) {
+  const [modo, setModo] = useState("mover"); // mover | borrar
+  const [destino, setDestino] = useState("");
+  useEffect(() => {
+    if (carpeta) {
+      setModo(conteo > 0 ? "mover" : "borrar");
+      const otra = (carpetas || []).find((c) => c !== carpeta);
+      setDestino(otra || "");
+    }
+  }, [carpeta, conteo, carpetas]);
+  const puede = conteo === 0 || modo === "borrar" || (modo === "mover" && destino);
+  return (
+    <Modal
+      open={!!carpeta}
+      onClose={onClose}
+      title="Eliminar carpeta"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            disabled={!puede}
+            onClick={() => onEliminar(carpeta, conteo > 0 && modo === "mover" ? destino : "")}
+          >
+            {conteo > 0 && modo === "borrar" ? "Eliminar todo" : "Eliminar carpeta"}
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-3 text-sm text-muted">
+        <b className="text-ink">{carpeta ? proyLabel(carpeta) : ""}</b>{" "}
+        {conteo > 0
+          ? `tiene ${conteo} ${conteo === 1 ? "documento" : "documentos"}.`
+          : "está vacía."}
+      </p>
+      {conteo > 0 && (
+        <div className="space-y-2">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              checked={modo === "mover"}
+              onChange={() => setModo("mover")}
+              className="mt-1"
+            />
+            <span className="flex-1">
+              Mover sus documentos a otra carpeta y luego eliminarla.
+              {modo === "mover" && (
+                <select
+                  value={destino}
+                  onChange={(e) => setDestino(e.target.value)}
+                  className="mt-2 block w-full rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
+                >
+                  {(carpetas || [])
+                    .filter((c) => c !== carpeta)
+                    .map((c) => (
+                      <option key={c} value={c}>
+                        {proyLabel(c)}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-danger">
+            <input
+              type="radio"
+              checked={modo === "borrar"}
+              onChange={() => setModo("borrar")}
+              className="mt-1"
+            />
+            <span className="flex-1">
+              Borrar la carpeta y TODOS sus documentos del conocimiento de Orvito (no se puede
+              deshacer).
+            </span>
+          </label>
+        </div>
+      )}
     </Modal>
   );
 }

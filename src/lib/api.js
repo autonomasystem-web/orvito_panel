@@ -261,7 +261,26 @@ export async function resumirAhora(conversationId) {
 /* ----------------- Base de conocimiento (documentos RAG) ----------------- */
 export async function listarDocumentos() {
   const r = await call("listar_documentos", {});
-  return Array.isArray(r.documentos) ? r.documentos : [];
+  return {
+    documentos: Array.isArray(r.documentos) ? r.documentos : [],
+    carpetas_orden: Array.isArray(r.carpetas_orden) ? r.carpetas_orden : [],
+  };
+}
+/* Carpetas de la base de conocimiento (carpeta = categoría del documento). */
+export async function crearCarpeta(nombre) {
+  return call("crear_carpeta", { nombre });
+}
+export async function renombrarCarpeta(actual, nuevo) {
+  return call("renombrar_carpeta", { actual, nuevo });
+}
+export async function moverDocumento(nombre_doc, categoria) {
+  return call("mover_documento", { nombre_doc, categoria });
+}
+export async function eliminarCarpeta(nombre, mover_a) {
+  return call("eliminar_carpeta", { nombre, mover_a: mover_a || "" });
+}
+export async function guardarOrdenCarpetas(orden) {
+  return call("guardar_orden_carpetas", { orden });
 }
 export async function verDocumento(nombre) {
   const r = await call("ver_documento", { nombre });
