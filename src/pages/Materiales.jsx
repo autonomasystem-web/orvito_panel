@@ -20,7 +20,15 @@ import { Plus, Copy, Check, Dots, Pencil, Trash, Folder } from "../components/Ic
 import { listarBrochures, crearBrochure, editarBrochure, eliminarBrochure } from "../lib/api.js";
 import { normalizeDropbox, isHttps, truthy } from "../lib/format.js";
 
-const CATEGORIAS_SUG = ["General", "Torres", "Edificios", "Etapas", "Golf", "Town", "Amenidades", "Casa Club", "Ubicación"];
+const CATEGORIAS_SUG = ["General", "Torres", "Edificios", "Etapas", "Golf", "Town", "Amenidades", "Casa Club", "Ubicación", "Avances de obra", "Institucional", "Video especial"];
+const TIPOS = [
+  { value: "brochure", label: "Brochure (PDF)" },
+  { value: "imagen", label: "Imagen" },
+  { value: "video", label: "Video (YouTube)" },
+];
+const esTipoVideo = (t) => String(t || "").toLowerCase() === "video";
+const esYoutube = (u) => /(?:youtube\.com|youtu\.be)/i.test(String(u || ""));
+
 
 // Slug legible por proyecto para la URL (ej. "Ciudad Central Mérida" -> "ciudad-central-merida")
 function slugify(s) {
@@ -402,6 +410,7 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
   const [menu, setMenu] = useState(false);
   const activo = truthy(b.activo);
   const esImg = (b.tipo || "brochure") === "imagen";
+  const esVid = esTipoVideo(b.tipo);
   return (
     <Card className="relative flex flex-col gap-3 p-4 md:p-5">
       <div className="flex items-start justify-between gap-2">
@@ -409,10 +418,14 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
           <span
             className={cx(
               "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              esImg ? "bg-brand-leaf/15 text-brand-green" : "bg-brand-dark text-white"
+              esVid
+                ? "bg-brand-lime/25 text-brand-dark"
+                : esImg
+                ? "bg-brand-leaf/15 text-brand-green"
+                : "bg-brand-dark text-white"
             )}
           >
-            {esImg ? "Imagen" : "Brochure"}
+            {esVid ? "Video" : esImg ? "Imagen" : "Brochure"}
           </span>
           <StatusChip estado={activo ? "Activo" : "Inactivo"} />
         </div>
@@ -456,8 +469,8 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
       )}
 
       <div className="space-y-1.5">
-        <LinkChip label={!esImg && b.url_en ? "ES" : null} url={b.url} />
-        {!esImg && b.url_en && <LinkChip label="EN" url={b.url_en} />}
+        <LinkChip label={esVid ? "YouTube" : !esImg && b.url_en ? "ES" : null} url={b.url} />
+        {!esImg && !esVid && b.url_en && <LinkChip label="EN" url={b.url_en} />}
       </div>
 
       {b.descripcion && (
@@ -501,6 +514,7 @@ function MaterialModal({ mode, data, proyectos, onClose, onSaved }) {
   const [touched, setTouched] = useState(false);
 
   const esImg = tipo === "imagen";
+  const esVid = esTipoVideo(tipo);
   const norm = normalizeDropbox(url);
   const urlOk = url && isHttps(url);
   const valid = proyecto.trim() && categoria.trim() && urlOk;
@@ -515,7 +529,7 @@ function MaterialModal({ mode, data, proyectos, onClose, onSaved }) {
         categoria: categoria.trim(),
         tipo,
         url: url.trim(),
-        url_en: esImg ? "" : urlEn.trim(),
+        url_en: esImg || esVid ? "" : urlEn.trim(),
         descripcion: descripcion.trim(),
         notas: notas.trim(),
         activo,
@@ -587,20 +601,21 @@ function MaterialModal({ mode, data, proyectos, onClose, onSaved }) {
         <Segmented
           value={tipo}
           onChange={setTipo}
-          options={[
-            { value: "brochure", label: "Brochure (PDF)" },
-            { value: "imagen", label: "Imagen" },
-          ]}
+          options={TIPOS}
         />
       </Field>
 
       <Field
-        label={esImg ? "Enlace de la imagen" : "Enlace del brochure (Dropbox)"}
+        label={esVid ? "Enlace de YouTube" : esImg ? "Enlace de la imagen" : "Enlace del brochure (Dropbox)"}
         hint={
           touched && !url
             ? "El enlace es obligatorio."
             : url && !urlOk
             ? "Debe ser un enlace https válido."
+            : esVid && url && !esYoutube(url)
+            ? "No parece un enlace de YouTube. Revísalo."
+            : esVid
+            ? "Pega la lista de reproducción o el video. Orvito lo comparte tal cual."
             : !esImg && norm.changed
             ? "Se convertirá a descarga directa (raw=1)."
             : esImg
@@ -610,13 +625,19 @@ function MaterialModal({ mode, data, proyectos, onClose, onSaved }) {
         hintTone={touched && (!url || !urlOk) ? "amber" : "brand"}
       >
         <Input
-          placeholder={esImg ? "https://…/imagen.jpg" : "https://www.dropbox.com/…"}
+          placeholder={
+            esVid
+              ? "https://youtube.com/playlist?list=…"
+              : esImg
+              ? "https://…/imagen.jpg"
+              : "https://www.dropbox.com/…"
+          }
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
       </Field>
 
-      {!esImg && (
+      {!esImg && !esVid && (
         <Field
           label="Brochure en inglés (Dropbox) — opcional"
           hint={
