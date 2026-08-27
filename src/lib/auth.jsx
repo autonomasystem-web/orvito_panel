@@ -12,6 +12,8 @@ const ADMIN_EMAILS = [
   "carlos.garrido@grupoorve.mx",
   "jose.martinez@grupoorve.mx",
   "carla.briceno@grupoorve.mx",
+  "cesar.yah@grupoorve.mx",
+  "angel.ramirez@grupoorve.mx",
 ];
 
 export function AuthProvider({ children }) {
