@@ -66,8 +66,17 @@ export function Field({ label, hint, hintTone = "muted", children }) {
 }
 export const inputCls =
   "w-full h-11 rounded-xl border border-line bg-white px-3.5 text-sm text-ink placeholder:text-muted2 focus:outline-none focus:ring-2 focus:ring-brand-leaf/40 focus:border-brand-leaf/40";
-export function Input(props) {
-  return <input className={inputCls} {...props} />;
+// Ojo: el className propio se MEZCLA, no se pisa. Al hacer {...props} despues de
+// className={inputCls}, cualquier <Input className="..."> perdia el estilo entero
+// —incluidos bg-white y text-ink— y el sistema lo pintaba de negro en modo oscuro.
+export function Input({ className, ...props }) {
+  // Tailwind resuelve por orden en la HOJA, no por orden en el atributo: w-full
+  // esta definido despues que w-28/w-auto y les ganaria. Si el caller trae su
+  // propio ancho, se quita el w-full de la base.
+  const base = /(?:^|\s)w-(?!full)/.test(className || "")
+    ? inputCls.replace("w-full ", "")
+    : inputCls;
+  return <input className={cx(base, className)} {...props} />;
 }
 export function Textarea({ className, ...props }) {
   return (
