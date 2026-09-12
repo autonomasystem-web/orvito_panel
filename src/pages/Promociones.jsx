@@ -266,14 +266,6 @@ function PromoCard({ p, onEdit, onDelete, dimmed }) {
           {(p.beneficio || p.descripcion) && (
             <p className="text-sm leading-relaxed text-muted">{p.beneficio || p.descripcion}</p>
           )}
-          {p.codigo_cupon && (
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted2">Cupón:</span>
-              <span className="rounded bg-brand/15 px-2 py-0.5 font-mono font-semibold text-brand-dark">
-                {p.codigo_cupon}
-              </span>
-            </div>
-          )}
           {p.participantes && (
             <p className="text-xs text-muted2">Participantes: {p.participantes}</p>
           )}
@@ -324,7 +316,6 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
   const [beneficio, setBeneficio] = useState(data.beneficio || data.descripcion || "");
   const [legales, setLegales] = useState(data.legales || "");
   const [participantes, setParticipantes] = useState(data.participantes || "");
-  const [codigoCupon, setCodigoCupon] = useState(data.codigo_cupon || "");
   const [aplica, setAplica] = useState(
     String(data.proyectos_aplica || "")
       .split(",")
@@ -353,7 +344,6 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
         beneficio: beneficio.trim(),
         legales: legales.trim(),
         participantes: participantes.trim(),
-        codigo_cupon: codigoCupon.trim(),
         proyectos_aplica: aplica.join(", "),
         vigencia_inicio: ini || null,
         vigencia_fin: fin || null,
@@ -407,22 +397,13 @@ function PromoModal({ mode, data, proyectos, onClose, onSaved }) {
         />
       </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Código para cupón">
-          <Input
-            placeholder="Ej. ORVE10"
-            value={codigoCupon}
-            onChange={(e) => setCodigoCupon(e.target.value)}
-          />
-        </Field>
-        <Field label="Participantes">
-          <Input
-            placeholder="Quién puede participar"
-            value={participantes}
-            onChange={(e) => setParticipantes(e.target.value)}
-          />
-        </Field>
-      </div>
+      <Field label="Participantes">
+        <Input
+          placeholder="Quién puede participar"
+          value={participantes}
+          onChange={(e) => setParticipantes(e.target.value)}
+        />
+      </Field>
 
       <Field label="Legales de la promoción" hint="Restricciones, letras chiquitas, condiciones.">
         <Textarea
