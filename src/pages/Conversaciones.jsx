@@ -644,6 +644,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
   const [resumiendo, setResumiendo] = useState(false);
   const [refrescando, setRefrescando] = useState(false);
   const scrollRef = useRef(null);
+  const pegadoAbajoRef = useRef(true);
 
   // Limpieza única: versiones anteriores permitían arrastrar el chat y guardaban su
   // altura (global) en localStorage, lo que dejaba el chat "alargado" en todos los hilos.
@@ -655,13 +656,14 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    setStatus("loading");
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setStatus("loading");
     try {
       setData(await verConversacion(id));
       setStatus("ready");
     } catch (e) {
-      setStatus("error");
+      // Un refresco silencioso que falle no debe tumbar el chat que ya se está viendo.
+      if (!silent) setStatus("error");
     }
   }, [id]);
 
@@ -669,8 +671,18 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     load();
   }, [load]);
 
+  // Mensajes nuevos sin salir del chat: antes había que salir y volver a entrar.
+  // Solo con la pestaña visible, para no consultar de gratis en segundo plano.
   useEffect(() => {
-    if (status === "ready" && scrollRef.current) {
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load({ silent: true });
+    }, 10000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  // Baja solo si el usuario YA estaba hasta abajo: si subió a leer algo, no se le mueve.
+  useEffect(() => {
+    if (status === "ready" && scrollRef.current && pegadoAbajoRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [status, data]);
@@ -868,7 +880,14 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
       )}
 
       {/* hilo */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto bg-canvas/50 px-4 py-5">
+      <div
+        ref={scrollRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pegadoAbajoRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 space-y-4 overflow-y-auto bg-canvas/50 px-4 py-5"
+      >
         {status === "loading" && (
           <div className="space-y-4">
             <Skeleton className="ml-auto h-16 w-2/3 rounded-2xl" />
