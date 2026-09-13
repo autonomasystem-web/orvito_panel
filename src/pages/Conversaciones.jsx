@@ -14,6 +14,7 @@ import {
 import { Chat, Sparkles, Refresh } from "../components/Icons.jsx";
 import RichText, { stripFormato } from "../components/RichText.jsx";
 import mascotaOrvito from "../assets/orvito-mascota.webp";
+import { LOGO_COLOR } from "../assets/brand.js";
 import {
   listarConversaciones,
   conteoConversaciones,
@@ -742,6 +743,14 @@ function ConvItem({ c, active, onClick }) {
 }
 
 /* ---------- detalle / hilo ---------- */
+
+/** Une mensajes sin duplicar y en orden. Los `nuevos` mandan si un id coincide. */
+function fusionarMensajes(previos, nuevos) {
+  const porId = new Map((previos || []).map((m) => [m.id, m]));
+  (nuevos || []).forEach((m) => porId.set(m.id, m));
+  return Array.from(porId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
+}
+
 function Detalle({ id, onBack, onEstadoCambiado }) {
   const toast = useToast();
   const [data, setData] = useState(null);
@@ -764,31 +773,55 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     }
   }, []);
 
-  // Al abrir, se trae el historial completo. En el auto-refresco se piden SOLO los
-  // 20 últimos y se fusionan: antes cada vuelta volvía a paginar todo el historial
-  // (hasta 80 llamadas seguidas a Chatwoot), tardaba más que el propio intervalo y
-  // por eso el mensaje aparecía primero en la lista y después en el chat.
-  const load = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setStatus("loading");
-    try {
-      const r = await verConversacion(id, { soloRecientes: silent });
-      setData((prev) => {
-        if (!r.parcial || !prev || !prev.mensajes || !prev.mensajes.length) return r;
-        const porId = new Map(prev.mensajes.map((m) => [m.id, m]));
-        r.mensajes.forEach((m) => porId.set(m.id, m));
-        const mensajes = Array.from(porId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
-        return { ...r, mensajes };
-      });
-      setStatus("ready");
-    } catch (e) {
-      // Un refresco silencioso que falle no debe tumbar el chat que ya se está viendo.
-      if (!silent) setStatus("error");
-    }
-  }, [id]);
+  // En el auto-refresco se piden SOLO los 20 últimos y se fusionan: antes cada vuelta
+  // volvía a paginar todo el historial (hasta 80 llamadas seguidas a Chatwoot), tardaba
+  // más que el propio intervalo y por eso el mensaje aparecía primero en la lista y
+  // después en el chat.
+  const load = useCallback(
+    async ({ silent = false, soloRecientes = false } = {}) => {
+      if (!silent) setStatus("loading");
+      try {
+        const r = await verConversacion(id, { soloRecientes });
+        setData((prev) =>
+          r.parcial && prev?.mensajes?.length
+            ? { ...r, mensajes: fusionarMensajes(prev.mensajes, r.mensajes) }
+            : r
+        );
+        setStatus("ready");
+      } catch (e) {
+        // Un refresco silencioso que falle no debe tumbar el chat que ya se está viendo.
+        if (!silent) setStatus("error");
+      }
+    },
+    [id]
+  );
 
+  // Al abrir un chat: primero los últimos mensajes (1 llamada, entra al instante) y
+  // el historial completo detrás, en segundo plano. Traerlo todo de golpe tardaba
+  // 6 s en un chat mediano y 15 s en uno largo, con la pantalla parada mientras tanto.
   useEffect(() => {
-    load();
-  }, [load]);
+    let vivo = true;
+    setData(null); // al cambiar de chat NO se pueden mezclar los mensajes del anterior
+    (async () => {
+      await load({ soloRecientes: true });
+      if (!vivo) return;
+      try {
+        const completo = await verConversacion(id);
+        if (!vivo) return;
+        // Se fusiona en vez de reemplazar, por si llegó algo mientras bajaba.
+        setData((prev) =>
+          prev?.mensajes?.length
+            ? { ...completo, mensajes: fusionarMensajes(completo.mensajes, prev.mensajes) }
+            : completo
+        );
+      } catch {
+        /* si el historial falla, queda lo reciente, que es lo que se está leyendo */
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [id, load]);
 
   // Mensajes nuevos sin salir del chat: antes había que salir y volver a entrar.
   // Solo con la pestaña visible, para no consultar de gratis en segundo plano.
@@ -890,6 +923,24 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
   const est = ESTADO[conv?.status] || ESTADO.pending;
 
   const grupos = useMemo(() => agruparPorDia(data?.mensajes || []), [data]);
+
+  // Mientras abre: nada del chat anterior en pantalla (ni nombre, ni foto, ni globos
+  // de relleno), solo el logo. Se deja el botón de volver para no dejar atrapado a
+  // quien esté en el celular si la red va lenta.
+  if (status === "loading") {
+    return (
+      <Card className="relative flex h-[75vh] min-h-[420px] max-h-[calc(100vh-72px)] flex-col items-center justify-center overflow-hidden md:h-[calc(100vh-7rem)]">
+        <button
+          onClick={onBack}
+          className="absolute left-3 top-3 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
+          aria-label="Volver"
+        >
+          ←
+        </button>
+        <img src={LOGO_COLOR} alt="ORVE" className="h-10 w-auto animate-pulse" />
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -1017,13 +1068,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
         }}
         className="flex-1 space-y-4 overflow-y-auto bg-canvas/50 px-4 py-5"
       >
-        {status === "loading" && (
-          <div className="space-y-4">
-            <Skeleton className="ml-auto h-16 w-2/3 rounded-2xl" />
-            <Skeleton className="h-14 w-1/2 rounded-2xl" />
-            <Skeleton className="ml-auto h-20 w-3/5 rounded-2xl" />
-          </div>
-        )}
+        {/* "loading" no llega hasta aquí: se atiende arriba con el logo a pantalla completa */}
         {status === "error" && (
           <ErrorState title="No pudimos cargar el hilo" onRetry={load} />
         )}
