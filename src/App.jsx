@@ -11,14 +11,12 @@ import Documentos from "./pages/Documentos.jsx";
 import Entregas from "./pages/Entregas.jsx";
 import Temas from "./pages/Temas.jsx";
 import Esfuerzos from "./pages/Esfuerzos.jsx";
-import { Leaf } from "./components/Icons.jsx";
+import { LOGO_COLOR } from "./assets/brand.js";
 
 function Splash() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas">
-      <span className="grid h-14 w-14 animate-pulse place-items-center rounded-2xl bg-soft text-brand-leaf">
-        <Leaf size={28} />
-      </span>
+      <img src={LOGO_COLOR} alt="ORVE" className="h-12 w-auto animate-pulse" />
     </div>
   );
 }
