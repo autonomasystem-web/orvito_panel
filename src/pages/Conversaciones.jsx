@@ -524,6 +524,38 @@ function UserGlyph({ size = 22 }) {
 // Storage tosa en un refresco: se pinta directo (cache-hit del navegador, 7 días).
 const avatarOk = new Set();
 
+// El Storage self-hosted NO aguanta la ráfaga: si la lista pide sus ~230 fotos de golpe,
+// tira conexiones (medido: 2 de 30 fallan en paralelo, 0 de 30 pidiéndolas una por una).
+// Por eso se pide de MAX_EN_VUELO en MAX_EN_VUELO y las demás esperan turno en la cola.
+// `loading="lazy"` no basta: el navegador considera "cerca del viewport" varias pantallas.
+const MAX_EN_VUELO = 5;
+let enVuelo = 0;
+const colaFotos = [];
+
+function bombearCola() {
+  while (enVuelo < MAX_EN_VUELO && colaFotos.length) {
+    const t = colaFotos.shift();
+    if (t.cancelado) continue;
+    enVuelo += 1;
+    t.ocupando = true;
+    t.arrancar();
+  }
+}
+
+/** Pide turno para bajar una foto. `soltar()` al terminar; `cancelar()` si se desmonta. */
+function turnoDeCarga(arrancar) {
+  const t = { arrancar, cancelado: false, ocupando: false };
+  colaFotos.push(t);
+  bombearCola();
+  const soltar = () => {
+    if (!t.ocupando) return;
+    t.ocupando = false;
+    enVuelo -= 1;
+    bombearCola();
+  };
+  return { soltar, cancelar: () => { t.cancelado = true; soltar(); } };
+}
+
 function Avatar({ src, name, tipo, size = 44 }) {
   const esInterno = tipo === "interno";
   // Asesor interno sin foto real → mascota Orvito (default de marca). Cliente sin foto → iniciales.
@@ -537,17 +569,68 @@ function Avatar({ src, name, tipo, size = 44 }) {
     setLoaded(!!effectiveSrc && avatarOk.has(effectiveSrc));
     setGaveUp(false);
   }, [effectiveSrc]);
-  // El Storage self-hosted a veces tira peticiones cuando la lista pide muchas fotos a la vez;
-  // si la imagen falla o se queda colgada, se reintenta (con cache-bust) hasta 3 veces.
+  // La mascota es un asset local y una foto ya vista sale del cache del navegador:
+  // ninguna de las dos toca el Storage, así que no gastan turno.
+  const remota =
+    !!effectiveSrc && /^https?:/i.test(effectiveSrc) && !avatarOk.has(effectiveSrc);
+  // Solo se piden las fotos que de verdad están en pantalla. Es lo que de
+  // verdad acota la carga: la lista puede traer 350 conversaciones, pero el
+  // Storage solo ve la docena que el usuario está viendo. `loading="lazy"` no
+  // alcanza (el navegador considera "cerca" varias pantallas de margen).
+  const cajaRef = useRef(null);
+  const [aLaVista, setALaVista] = useState(!remota);
+  useEffect(() => {
+    if (!remota) {
+      setALaVista(true);
+      return;
+    }
+    const el = cajaRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setALaVista(true); // sin soporte, se comporta como antes
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((e) => e.isIntersecting)) {
+          setALaVista(true);
+          io.disconnect(); // una vez visible, ya no se vuelve a soltar
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [remota, effectiveSrc]);
+  const haceFalta = remota && aLaVista;
+  const [turno, setTurno] = useState(!remota);
+  const soltarRef = useRef(null);
+  useEffect(() => {
+    if (!haceFalta || gaveUp) {
+      setTurno(!remota);
+      return;
+    }
+    setTurno(false);
+    const t = turnoDeCarga(() => setTurno(true));
+    soltarRef.current = t.soltar;
+    return () => {
+      t.cancelar();
+      soltarRef.current = null;
+    };
+  }, [effectiveSrc, haceFalta, gaveUp, attempt]);
+  // Si la imagen falla o se queda colgada, se reintenta (con cache-bust) hasta 3 veces.
   // Timeout amplio (10s) para no abandonar una carga lenta-pero-buena bajo ráfaga.
   useEffect(() => {
-    if (!effectiveSrc || loaded || gaveUp) return;
+    if (!effectiveSrc || !turno || loaded || gaveUp) return;
     const t = setTimeout(() => {
       if (attempt >= 3) setGaveUp(true);
       else setAttempt((a) => a + 1);
     }, 10000);
     return () => clearTimeout(t);
-  }, [effectiveSrc, attempt, loaded, gaveUp]);
+  }, [effectiveSrc, turno, attempt, loaded, gaveUp]);
+  // El reintento espera antes de volver a pedir: insistir de inmediato sobre un Storage
+  // que ya viene ahogado es justo lo que lo tumbaba.
+  const reintentoRef = useRef(null);
+  useEffect(() => () => clearTimeout(reintentoRef.current), []);
   const ini = initialsOf(name);
   const bust = effectiveSrc
     ? attempt > 0
@@ -557,6 +640,7 @@ function Avatar({ src, name, tipo, size = 44 }) {
   // Iniciales/ícono SIEMPRE de fondo; la foto (si carga) va encima. Así nunca queda un círculo vacío.
   return (
     <span
+      ref={cajaRef}
       className={cx(
         "relative grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold ring-1",
         esInterno ? "bg-brand-green/10 text-brand-green ring-brand-green/20" : "bg-soft text-brand-dark ring-line"
@@ -564,19 +648,28 @@ function Avatar({ src, name, tipo, size = 44 }) {
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
     >
       <span aria-hidden>{ini || <UserGlyph size={Math.round(size * 0.5)} />}</span>
-      {bust && !gaveUp && (
+      {bust && turno && !gaveUp && (
         <img
           key={attempt}
           src={bust}
           alt={name || "Foto de perfil"}
           loading="lazy"
+          decoding="async"
           onLoad={() => {
             if (effectiveSrc) avatarOk.add(effectiveSrc);
             setLoaded(true);
+            soltarRef.current?.(); // libera el turno para la siguiente foto de la cola
           }}
           onError={() => {
+            soltarRef.current?.();
             if (attempt >= 3) setGaveUp(true);
-            else setAttempt((a) => a + 1);
+            else {
+              clearTimeout(reintentoRef.current);
+              reintentoRef.current = setTimeout(
+                () => setAttempt((a) => a + 1),
+                600 * (attempt + 1)
+              );
+            }
           }}
           className="absolute inset-0 h-full w-full object-cover"
         />
