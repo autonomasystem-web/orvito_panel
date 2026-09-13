@@ -197,11 +197,16 @@ export async function conteoConversaciones(status = "all") {
     externos: Number(r.externos) || 0,
   };
 }
-export async function verConversacion(id) {
-  const r = await call("ver_conversacion", { id });
+// `soloRecientes` trae solo la última página (20 mensajes) en vez de paginar todo el
+// historial. Es lo que usa el auto-refresco del chat: bajar cientos de mensajes cada
+// 10 s hacía que el hilo se actualizara DESPUÉS que la lista. Devuelve `parcial: true`
+// para que quien llame sepa que debe fusionar, no reemplazar.
+export async function verConversacion(id, { soloRecientes = false } = {}) {
+  const r = await call("ver_conversacion", { id, solo_recientes: soloRecientes });
   return {
     conversacion: r.conversacion || null,
     mensajes: Array.isArray(r.mensajes) ? r.mensajes : [],
+    parcial: r.parcial === true,
   };
 }
 // Fuerza una consulta EN VIVO al CRM para este contacto (1 llamada) y actualiza su caché.

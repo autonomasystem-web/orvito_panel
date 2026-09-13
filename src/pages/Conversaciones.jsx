@@ -67,6 +67,10 @@ export default function Conversaciones() {
   // páginas que la búsqueda ya cargó. Ref porque el timer de 12s tiene closure
   // fijo (deps []).
   const filtrandoRef = useRef(false);
+  // El auto-refresco de la lista pisa `items` con lo que diga Chatwoot, y ahí vuelve
+  // el badge de no leídos de la conversación que estás viendo. `loadList` es un
+  // useCallback con deps [filtro], así que lee el seleccionado por ref.
+  const selRef = useRef(null);
 
   // Lista canónica de roles internos del CRM (para que NO falten en el filtro
   // aunque no haya una conversación cargada de ese rol). Se unen los roles que
@@ -121,6 +125,7 @@ export default function Conversaciones() {
 
   // Al abrir una conversación: marcarla como leída (quita el badge aquí y en Chatwoot)
   useEffect(() => {
+    selRef.current = sel;
     if (!sel) return;
     setItems((prev) => prev.map((c) => (c.id === sel ? { ...c, no_leidos: 0 } : c)));
     marcarLeidaConversacion(sel).catch(() => {});
@@ -132,7 +137,17 @@ export default function Conversaciones() {
       if (!silent) setStatus("loading");
       try {
         const r = await listarConversaciones({ status: filtro, page: 1 });
-        setItems(r.conversaciones);
+        // El chat que estás viendo nunca debe salir con "no leídos": si llegaron
+        // mensajes mientras lo tenías abierto, Chatwoot los siguió contando, así que
+        // se vuelve a marcar como visto allá y se limpia el badge aquí.
+        const abierta = selRef.current;
+        let lista = r.conversaciones;
+        if (abierta) {
+          const c = lista.find((x) => x.id === abierta);
+          if (c && c.no_leidos > 0) marcarLeidaConversacion(abierta).catch(() => {});
+          lista = lista.map((x) => (x.id === abierta ? { ...x, no_leidos: 0 } : x));
+        }
+        setItems(lista);
         setPagina(1);
         setHayMas(r.hayMas);
         setStatus("ready");
@@ -749,10 +764,21 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
     }
   }, []);
 
+  // Al abrir, se trae el historial completo. En el auto-refresco se piden SOLO los
+  // 20 últimos y se fusionan: antes cada vuelta volvía a paginar todo el historial
+  // (hasta 80 llamadas seguidas a Chatwoot), tardaba más que el propio intervalo y
+  // por eso el mensaje aparecía primero en la lista y después en el chat.
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setStatus("loading");
     try {
-      setData(await verConversacion(id));
+      const r = await verConversacion(id, { soloRecientes: silent });
+      setData((prev) => {
+        if (!r.parcial || !prev || !prev.mensajes || !prev.mensajes.length) return r;
+        const porId = new Map(prev.mensajes.map((m) => [m.id, m]));
+        r.mensajes.forEach((m) => porId.set(m.id, m));
+        const mensajes = Array.from(porId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
+        return { ...r, mensajes };
+      });
       setStatus("ready");
     } catch (e) {
       // Un refresco silencioso que falle no debe tumbar el chat que ya se está viendo.
@@ -766,10 +792,20 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
 
   // Mensajes nuevos sin salir del chat: antes había que salir y volver a entrar.
   // Solo con la pestaña visible, para no consultar de gratis en segundo plano.
+  // Cada vuelta cuesta 1 llamada a Chatwoot, así que se puede ir más seguido.
   useEffect(() => {
-    const t = setInterval(() => {
-      if (document.visibilityState === "visible") load({ silent: true });
-    }, 10000);
+    let corriendo = false;
+    const t = setInterval(async () => {
+      // Si la vuelta anterior sigue en vuelo no se encima otra: apilarlas era
+      // justo lo que saturaba el gateway y retrasaba el hilo.
+      if (corriendo || document.visibilityState !== "visible") return;
+      corriendo = true;
+      try {
+        await load({ silent: true });
+      } finally {
+        corriendo = false;
+      }
+    }, 6000);
     return () => clearInterval(t);
   }, [load]);
 
