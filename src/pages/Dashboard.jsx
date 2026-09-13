@@ -527,6 +527,35 @@ function AdopcionEsfuerzo({ items, canEdit }) {
 /* ---------------- Serie diaria ---------------- */
 function SerieDiaria({ serie }) {
   const hayResuelto = serie.some((d) => d.pct_resuelto != null);
+
+  // Al cargar, la gráfica arranca pegada al piso y sube hasta los valores reales.
+  // Se anima el DATO, no el trazo: Recharts interpola entre los puntos anteriores y
+  // los nuevos, así que pintar primero en 0 y luego la serie da justo ese efecto.
+  const [subida, setSubida] = useState(false);
+  const primeraFecha = serie[0]?.fecha;
+  useEffect(() => {
+    setSubida(false);
+    // Un respiro para que alcance a pintarse el piso antes de soltar la subida.
+    const t = setTimeout(() => setSubida(true), 150);
+    return () => clearTimeout(t);
+    // Se repite al cambiar de rango (7d/30d…), no en el refresco de cada 5 min:
+    // esos traen la misma ventana y volver a caer al piso sería molesto.
+  }, [serie.length, primeraFecha]);
+  const datos = useMemo(
+    () =>
+      subida
+        ? serie
+        : serie.map((d) => ({
+            ...d,
+            conversaciones: 0,
+            pct_resuelto: d.pct_resuelto == null ? null : 0,
+          })),
+    [serie, subida]
+  );
+  // El eje se fija con el máximo REAL: si se dejara automático, arrancaría en 0 y se
+  // reescalaría mientras sube, que se ve como un temblor.
+  const topeConv = Math.max(1, ...serie.map((d) => Number(d.conversaciones) || 0));
+
   return (
     <Card className="p-4 md:p-5">
       <SectionTitle
@@ -535,7 +564,7 @@ function SerieDiaria({ serie }) {
       />
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={serie} margin={{ top: 10, right: hayResuelto ? 4 : 8, left: -18, bottom: 0 }}>
+          <ComposedChart data={datos} margin={{ top: 10, right: hayResuelto ? 4 : 8, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="gConv" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={C.leaf} stopOpacity={0.28} />
@@ -554,6 +583,7 @@ function SerieDiaria({ serie }) {
             <YAxis
               yAxisId="left"
               allowDecimals={false}
+              domain={[0, topeConv]}
               tick={{ fontSize: 12, fill: C.muted }}
               axisLine={false}
               tickLine={false}
@@ -582,7 +612,8 @@ function SerieDiaria({ serie }) {
               name="Conversaciones"
               dot={serie.length > 45 ? false : { r: 2.5, fill: C.dark, strokeWidth: 0 }}
               activeDot={{ r: 4 }}
-              isAnimationActive={false}
+              animationDuration={1100}
+              animationEasing="ease-out"
             />
             {hayResuelto && (
               <Line
@@ -594,7 +625,8 @@ function SerieDiaria({ serie }) {
                 dot={{ r: 2.5, fill: C.green, strokeWidth: 0 }}
                 name="% resuelto sin escalar"
                 connectNulls
-                isAnimationActive={false}
+                animationDuration={1100}
+                animationEasing="ease-out"
               />
             )}
           </ComposedChart>
