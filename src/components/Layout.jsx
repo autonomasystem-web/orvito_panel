@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain, Bars } from "./Icons.jsx";
+import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain, Bars, ChevronLeft, ChevronRight } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
@@ -59,6 +59,22 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [pwOpen, setPwOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Barra lateral plegable (solo escritorio). Se recuerda la preferencia: si alguien
+  // trabaja siempre en Conversaciones querrá el ancho extra en cada visita.
+  const [plegada, setPlegada] = useState(() => {
+    try {
+      return localStorage.getItem("orvito_menu_plegado") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("orvito_menu_plegado", plegada ? "1" : "0");
+    } catch {
+      /* modo privado o almacenamiento bloqueado: se queda solo para esta sesión */
+    }
+  }, [plegada]);
   const logout = async () => {
     await signOut();
     navigate("/login", { replace: true });
@@ -66,10 +82,32 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-canvas">
-      {/* Sidebar desktop */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-gradient-to-b from-brand-dark to-brand-darkest px-4 py-6 md:flex">
-        <div className="px-2">
-          <Logo />
+      {/* Sidebar desktop (plegable: se encoge a solo íconos) */}
+      <aside
+        className={cx(
+          "fixed inset-y-0 left-0 z-30 hidden flex-col bg-gradient-to-b from-brand-dark to-brand-darkest py-6 transition-[width] duration-300 ease-in-out md:flex",
+          plegada ? "w-[76px] px-3" : "w-64 px-4"
+        )}
+      >
+        {/* Tirador: vive en el borde, así que se ve igual plegada o desplegada */}
+        <button
+          onClick={() => setPlegada((v) => !v)}
+          title={plegada ? "Mostrar menú" : "Ocultar menú"}
+          aria-label={plegada ? "Mostrar menú" : "Ocultar menú"}
+          aria-expanded={!plegada}
+          className="absolute -right-3 top-9 hidden h-6 w-6 items-center justify-center rounded-full bg-white text-brand-dark shadow-card ring-1 ring-black/5 transition-colors hover:bg-soft md:flex"
+        >
+          {plegada ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        {/* Plegada no cabe el logo a h-8 (mide 80 px de ancho y el riel deja 52):
+            se pinta acotado por ancho en vez de por alto. */}
+        <div className={cx(plegada ? "flex justify-center" : "px-2")}>
+          {plegada ? (
+            <img src={LOGO_WHITE} alt="ORVE" className="h-auto w-12" />
+          ) : (
+            <Logo />
+          )}
         </div>
         <nav className="mt-8 flex flex-1 flex-col gap-1">
           {nav.map((n) => (
@@ -77,9 +115,12 @@ export default function Layout({ children }) {
               key={n.to}
               to={n.to}
               end={n.end}
+              // Plegada solo se ve el ícono, así que el nombre va en el tooltip nativo.
+              title={plegada ? n.label : undefined}
               className={({ isActive }) =>
                 cx(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors",
+                  plegada ? "justify-center px-0" : "px-3",
                   isActive
                     ? "bg-white/12 text-white"
                     : "text-white/70 hover:bg-white/5 hover:text-white"
@@ -87,27 +128,35 @@ export default function Layout({ children }) {
               }
             >
               <n.icon size={20} />
-              {n.label}
+              {!plegada && n.label}
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto space-y-1 px-1">
-          {user?.email && (
+        <div className={cx("mt-auto space-y-1", plegada ? "px-0" : "px-1")}>
+          {user?.email && !plegada && (
             <p className="truncate px-2 pb-1 text-[11px] text-white/40" title={user.email}>
               {user.email}
             </p>
           )}
           <button
             onClick={() => setPwOpen(true)}
-            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+            title={plegada ? "Cambiar contraseña" : undefined}
+            className={cx(
+              "flex w-full items-center gap-3 rounded-xl py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white",
+              plegada ? "justify-center px-0" : "px-2"
+            )}
           >
-            <Key size={20} /> Cambiar contraseña
+            <Key size={20} /> {!plegada && "Cambiar contraseña"}
           </button>
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+            title={plegada ? "Cerrar sesión" : undefined}
+            className={cx(
+              "flex w-full items-center gap-3 rounded-xl py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white",
+              plegada ? "justify-center px-0" : "px-2"
+            )}
           >
-            <Logout size={20} /> Cerrar sesión
+            <Logout size={20} /> {!plegada && "Cerrar sesión"}
           </button>
         </div>
       </aside>
@@ -203,8 +252,20 @@ export default function Layout({ children }) {
       )}
 
       {/* Contenido */}
-      <main className="md:pl-64">
-        <div className="mx-auto max-w-6xl px-4 pb-10 pt-5 md:px-8 md:pb-12 md:pt-8">
+      <main
+        className={cx(
+          "transition-[padding] duration-300 ease-in-out",
+          plegada ? "md:pl-[76px]" : "md:pl-64"
+        )}
+      >
+        {/* Plegada se sube el tope de ancho: si no, el contenido se queda igual de
+            angosto y esconder el menú no sirve de nada en una pantalla grande. */}
+        <div
+          className={cx(
+            "mx-auto px-4 pb-10 pt-5 md:px-8 md:pb-12 md:pt-8",
+            plegada ? "max-w-[1700px]" : "max-w-6xl"
+          )}
+        >
           <AlertasBanner />
           <OrvitoStatus />
           {children}
