@@ -192,3 +192,14 @@ export const Brain = ({ size }) => (
     <path d="M12 5a3 3 0 0 1 5.9-.6A3 3 0 0 1 21 7.5a3 3 0 0 1-.8 5A2.5 2.5 0 0 1 18 16.5a3 3 0 0 1-6 .5Z" />
   </svg>
 );
+// Se usa para plegar/desplegar la barra lateral: apunta hacia donde se va a mover.
+export const ChevronLeft = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="m15 18-6-6 6-6" />
+  </svg>
+);
+export const ChevronRight = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
