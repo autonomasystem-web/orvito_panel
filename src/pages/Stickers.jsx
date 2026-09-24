@@ -435,18 +435,25 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
           </div>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Orden" hint="Solo ordena la lista.">
-            <Input
-              type="number"
-              value={orden}
-              onChange={(e) => setOrden(e.target.value)}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Activo" hint="Si está apagado, Orvito no lo ve.">
-            <Toggle checked={activo} onChange={setActivo} />
-          </Field>
+        <Field label="Orden" hint="Solo ordena la lista.">
+          <Input
+            type="number"
+            min="0"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+            placeholder="0"
+            className="w-28"
+          />
+        </Field>
+
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-softer px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Activo</p>
+            <p className="text-xs text-muted">
+              {activo ? "Orvito puede enviarlo" : "Orvito no lo ve"}
+            </p>
+          </div>
+          <Toggle checked={activo} onChange={setActivo} />
         </div>
       </div>
     </Modal>
