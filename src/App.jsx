@@ -10,6 +10,7 @@ import Blogs from "./pages/Blogs.jsx";
 import Documentos from "./pages/Documentos.jsx";
 import Entregas from "./pages/Entregas.jsx";
 import Temas from "./pages/Temas.jsx";
+import Stickers from "./pages/Stickers.jsx";
 import Esfuerzos from "./pages/Esfuerzos.jsx";
 import { LOGO_COLOR } from "./assets/brand.js";
 
@@ -113,6 +114,14 @@ export default function App() {
         element={
           <AdminRoute>
             <Temas />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/stickers"
+        element={
+          <AdminRoute>
+            <Stickers />
           </AdminRoute>
         }
       />

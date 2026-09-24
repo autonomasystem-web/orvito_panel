@@ -4,3 +4,6 @@ dist
 .env.local
 *.local
 .DS_Store
+
+# respaldos de .env: nunca al repositorio
+.env*.bak
