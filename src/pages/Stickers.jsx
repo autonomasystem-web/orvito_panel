@@ -22,6 +22,7 @@ import {
   eliminarSticker,
   revisarSticker,
 } from "../lib/api.js";
+import { gifAWebpAnimado } from "../lib/gif-a-webp.js";
 import { truthy } from "../lib/format.js";
 import { useAuth } from "../lib/auth.jsx";
 
@@ -43,6 +44,9 @@ export default function Stickers() {
   const [status, setStatus] = useState("loading");
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  // Los animados son los que vienen de un GIF. Se separan porque se usan distinto:
+  // uno fijo cae bien en cualquier momento, uno animado llama mucho mas la atencion.
+  const [tipo, setTipo] = useState("todos");
 
   const load = async () => {
     setStatus("loading");
@@ -59,13 +63,18 @@ export default function Stickers() {
 
   const visibles = useMemo(
     () =>
-      [...items].sort(
+      [...items]
+        .filter((x) =>
+          tipo === "todos" ? true : tipo === "animados" ? truthy(x.animado) : !truthy(x.animado)
+        )
+        .sort(
         (a, b) =>
           Number(a.orden || 0) - Number(b.orden || 0) ||
           String(a.nombre || "").localeCompare(String(b.nombre || ""), "es")
-      ),
-    [items]
+        ),
+    [items, tipo]
   );
+  const nAnimados = items.filter((x) => truthy(x.animado)).length;
 
   const requestGuardar = (payload, mode, Id) => {
     setModal(null);
@@ -122,7 +131,7 @@ export default function Stickers() {
         />
       )}
 
-      {status === "ready" && visibles.length === 0 && (
+      {status === "ready" && items.length === 0 && (
         <EmptyState
           icon={<Sticker size={22} />}
           title="Aún no hay stickers"
@@ -135,12 +144,43 @@ export default function Stickers() {
         />
       )}
 
+      {status === "ready" && items.length > 0 && (
+        <div className="mb-4 flex gap-1 rounded-xl bg-softer p-1 text-sm">
+          {[
+            { k: "todos", label: `Todos (${items.length})` },
+            { k: "fijos", label: `Fijos (${items.length - nAnimados})` },
+            { k: "animados", label: `Animados / GIF (${nAnimados})` },
+          ].map((t) => (
+            <button
+              key={t.k}
+              onClick={() => setTipo(t.k)}
+              className={
+                "flex-1 rounded-lg px-3 py-1.5 transition " +
+                (tipo === t.k ? "bg-white font-medium text-ink shadow-sm" : "text-muted hover:text-ink")
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {status === "ready" && items.length > 0 && visibles.length === 0 && (
+        <p className="rounded-xl bg-softer px-4 py-6 text-center text-sm text-muted">
+          {tipo === "animados"
+            ? "Todavía no hay stickers animados. Sube un GIF y se convierte solo."
+            : "No hay stickers fijos."}
+        </p>
+      )}
+
       {status === "ready" && visibles.length > 0 && (
         <>
           <p className="mb-4 rounded-xl bg-softer px-4 py-3 text-xs text-muted">
             Orvito solo puede mandar los stickers de esta lista, y decide cuándo según lo que
             escribas en <b className="text-ink">Cuándo usarlo</b>. Los envía de vez en cuando, nunca
-            en mensajes de precios ni temas legales.
+            en mensajes de precios ni temas legales. ¿Tienes un GIF?{" "}
+            <b className="text-ink">Súbelo tal cual</b>: WhatsApp no manda GIFs, así que se convierte
+            en sticker animado, que es justo como se ven allá.
           </p>
           <div className="seq cards-lift grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visibles.map((s) => (
@@ -191,6 +231,11 @@ function StickerCard({ s, onEdit, onDelete }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-ink">{s.nombre || "—"}</h3>
             <StatusChip estado={activo ? "Activo" : "Inactivo"} />
+            {truthy(s.animado) && (
+              <span className="rounded-md bg-brand-green/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand-green">
+                GIF
+              </span>
+            )}
           </div>
           <code className="mt-0.5 block text-[11px] text-muted2">[STICKER:{s.nombre}]</code>
         </div>
@@ -250,6 +295,7 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
   const [archivo, setArchivo] = useState(null); // { archivo_b64, kb, animado, preview }
   const [errorArchivo, setErrorArchivo] = useState("");
   const [revisando, setRevisando] = useState(false);
+  const [convirtiendo, setConvirtiendo] = useState(false);
   const fileRef = useRef(null);
 
   const nombreLimpio = nombre.toUpperCase().trim().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, "");
@@ -267,15 +313,28 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
     setErrorArchivo("");
     setArchivo(null);
     try {
-      const r = await revisarSticker(file);
+      let usable = file;
+      // Un GIF no se puede mandar por WhatsApp: se convierte a WebP animado, que es
+      // lo que alla se ve como "gif". La conversion ocurre aqui, en el navegador.
+      if (/gif$/i.test(file.type) || /\.gif$/i.test(file.name)) {
+        setConvirtiendo(true);
+        const conv = await gifAWebpAnimado(file);
+        setConvirtiendo(false);
+        usable = new File([conv.blob], file.name.replace(/\.gif$/i, "") + ".webp", {
+          type: "image/webp",
+        });
+      }
+      const r = await revisarSticker(usable);
       if (!r.ok) {
         setErrorArchivo(r.error);
       } else {
-        setArchivo({ ...r, preview: URL.createObjectURL(file) });
+        setArchivo({ ...r, preview: URL.createObjectURL(usable) });
       }
-    } catch {
-      setErrorArchivo("No pudimos leer ese archivo.");
+    } catch (e) {
+      // el conversor explica el motivo concreto (dura demasiado, no baja de X KB...)
+      setErrorArchivo(e?.message || "No pudimos leer ese archivo.");
     }
+    setConvirtiendo(false);
     setRevisando(false);
   };
 
@@ -293,6 +352,7 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
 
   return (
     <Modal
+      open
       title={mode === "crear" ? "Nuevo sticker" : "Editar sticker"}
       onClose={onClose}
       footer={
@@ -338,12 +398,12 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
         </Field>
 
         <Field
-          label="Archivo (.webp)"
+          label="Archivo (.webp o .gif)"
           hint={
             errorArchivo ||
             (archivo
               ? `Listo: 512x512, ${archivo.kb} KB, ${archivo.animado ? "animado" : "fijo"}.`
-              : "WhatsApp exige WebP de 512x512: hasta 100 KB si es fijo, 500 KB si es animado.")
+              : "Sube un .webp de 512x512, o un .gif y lo convertimos a sticker animado.")
           }
           hintTone={errorArchivo ? "amber" : "brand"}
         >
@@ -351,12 +411,19 @@ function StickerModal({ mode, data, existentes, onClose, onSubmit }) {
             <input
               ref={fileRef}
               type="file"
-              accept="image/webp,.webp"
+              accept="image/webp,image/gif,.webp,.gif"
               className="hidden"
               onChange={(e) => elegir(e.target.files?.[0])}
             />
             <Button variant="ghost" onClick={() => fileRef.current?.click()}>
-              <Upload size={16} /> {revisando ? "Revisando…" : archivo ? "Cambiar archivo" : "Elegir archivo"}
+              <Upload size={16} />{" "}
+              {convirtiendo
+                ? "Convirtiendo el GIF…"
+                : revisando
+                ? "Revisando…"
+                : archivo
+                ? "Cambiar archivo"
+                : "Elegir archivo"}
             </Button>
             {(archivo?.preview || (mode === "editar" && data.url)) && (
               <img
@@ -408,6 +475,7 @@ function ConfirmPassword({ confirm, onDone, onClose }) {
 
   return (
     <Modal
+      open
       title={confirm.title}
       onClose={busy ? undefined : onClose}
       footer={
