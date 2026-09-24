@@ -203,3 +203,13 @@ export const ChevronRight = ({ size }) => (
     <path d="m9 18 6-6-6-6" />
   </svg>
 );
+
+// Sticker: hoja con la esquina doblada (asi se ven en WhatsApp) y una carita.
+export const Sticker = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="M15.5 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h6l9-9V6a3 3 0 0 0-3-3Z" />
+    <path d="M21 12h-6a3 3 0 0 0-3 3v6" />
+    <path d="M8.5 9.5h.01M13 9.5h.01" />
+    <path d="M8.5 14c.9.8 2.4.8 3.3 0" />
+  </svg>
+);

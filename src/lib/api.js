@@ -178,9 +178,70 @@ export async function eliminarTema(Id) {
   return call("eliminar_tema", { Id });
 }
 
+/* ----------------- Stickers de Orvito (solo admin) ----------------- */
+// Los stickers que Orvito puede mandar por WhatsApp. Lo que se da de alta aquí es lo
+// único que el agente ve: la lista viaja a su prompt, así que no puede inventarse un
+// marcador que no exista. El archivo se manda en base64 y el gateway lo valida y lo
+// guarda en el bucket propio (antes vivían en Dropbox, escritos dentro del workflow).
+export async function listarStickers() {
+  const r = await call("listar_stickers", {});
+  return Array.isArray(r.list) ? r.list : [];
+}
+export async function crearSticker(data) {
+  return call("crear_sticker", data);
+}
+export async function editarSticker(data) {
+  return call("editar_sticker", data);
+}
+export async function eliminarSticker(Id) {
+  return call("eliminar_sticker", { Id });
+}
+
+/**
+ * Comprueba el archivo ANTES de subirlo, para poder decir qué está mal sin esperar al
+ * servidor. WhatsApp solo manda como sticker un WebP de 512x512 de hasta 100 KB
+ * (fijo) o 500 KB (animado); cualquier otra cosa se envía... o no se envía, y el
+ * asesor nunca ve nada. El gateway repite esta revisión: esto es comodidad, no la
+ * defensa.
+ */
+export async function revisarSticker(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const txt = (i, n) => String.fromCharCode(...buf.slice(i, i + n));
+  if (buf.length < 16 || txt(0, 4) !== "RIFF" || txt(8, 12 - 8) !== "WEBP") {
+    return { ok: false, error: "El archivo no es .webp. WhatsApp solo acepta stickers en WebP (un PNG o JPG no sirve)." };
+  }
+  const animado = txt(0, Math.min(buf.length, 8192)).includes("ANMF");
+  const kb = Math.round(file.size / 1024);
+  const limite = animado ? 500 : 100;
+  const dim = await new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { resolve({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolve({ w: 0, h: 0 }); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+  if (dim.w !== 512 || dim.h !== 512) {
+    return { ok: false, error: `Mide ${dim.w}x${dim.h} px y debe medir exactamente 512x512.` };
+  }
+  if (kb > limite) {
+    return { ok: false, error: `Pesa ${kb} KB y el máximo para un sticker ${animado ? "animado" : "fijo"} es ${limite} KB.` };
+  }
+  const b64 = await new Promise((resolve) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || "").split(",")[1] || "");
+    fr.readAsDataURL(file);
+  });
+  return { ok: true, animado, kb, ancho: dim.w, alto: dim.h, archivo_b64: b64 };
+}
+
 /* ----------------- Conversaciones (proxy Chatwoot vía gateway) ----------------- */
-export async function listarConversaciones({ status = "all", page = 1 } = {}) {
-  const r = await call("listar_conversaciones", { status, page });
+// `porPagina` chico = la lista aparece rápido. El gateway sólo baja de Chatwoot las
+// páginas que hagan falta para llenar esa página y sólo resuelve en el CRM a esa
+// gente; antes bajaba las ~17 páginas y resolvía 500 personas antes de pintar nada.
+export async function listarConversaciones({ status = "all", page = 1, porPagina } = {}) {
+  const data = { status, page };
+  if (porPagina) data.por_pagina = porPagina;
+  const r = await call("listar_conversaciones", data);
   return {
     conversaciones: Array.isArray(r.conversaciones) ? r.conversaciones : [],
     pagina: Number(r.pagina) || page,
@@ -213,6 +274,45 @@ export async function verConversacion(id, { soloRecientes = false } = {}) {
 // Útil cuando alguien acaba de verificar su número y quieres verlo al instante.
 export async function refrescarCrm(telefono, contacto) {
   return call("refrescar_crm", { telefono, contacto });
+}
+
+// ¿Orvito está trabajando AHORA para este asesor, y en qué? Sale de los marcadores que
+// cada herramienta escribe al empezar (n8n no expone el avance de una ejecución en curso).
+// Nunca lanza: si falla, se comporta como "no está haciendo nada" y el chat sigue igual.
+export async function actividadOrvito(telefono) {
+  try {
+    const r = await call("actividad_orvito", { telefono });
+    if (!r || r.activo !== true) return { activo: false };
+    return { activo: true, herramienta: r.herramienta || "Consultando", haceS: Number(r.hace_s) || 0 };
+  } catch {
+    return { activo: false };
+  }
+}
+
+// Qué hizo Orvito para producir un mensaje: qué herramientas consultó, en qué orden,
+// cuánto tardó cada una y cómo acabó. Sale de la ejecución de n8n (que ya lo guarda
+// todo), saneado en el gateway: nunca trae ids, correos ni teléfonos.
+// Si la traza no está disponible (p.ej. la API key de n8n caducó) devuelve
+// { sinTraza: true }: el chat sigue funcionando igual, sólo no se puede desplegar.
+export async function trazaConversacion(telefono, cuando) {
+  let r;
+  try {
+    r = await call("traza_conversacion", { telefono, cuando });
+  } catch (e) {
+    // `call` convierte en excepción cualquier respuesta con ok:false o error. Aquí eso
+    // tapaba el motivo real y siempre se veía el mismo mensaje genérico: se rescata.
+    return { sinTraza: true, motivo: e?.message || "No pudimos leer el proceso de este mensaje." };
+  }
+  if (!r || r.sin_traza === true || !Array.isArray(r.pasos)) {
+    return { sinTraza: true, motivo: (r && (r.motivo || r.error)) || "No encontramos el proceso de este mensaje." };
+  }
+  return {
+    sinTraza: false,
+    ejecucion: r.ejecucion || "",
+    duracion: Number(r.duracion_s) || 0,
+    herramientas: Number(r.herramientas) || 0,
+    pasos: Array.isArray(r.pasos) ? r.pasos : [],
+  };
 }
 
 /* ----------------- Estado de Orvito (encendido / mantenimiento) ----------------- */

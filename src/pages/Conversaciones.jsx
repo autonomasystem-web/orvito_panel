@@ -24,6 +24,8 @@ import {
   resumirAhora,
   refrescarCrm,
   dispararSyncAvatares,
+  trazaConversacion,
+  actividadOrvito,
 } from "../lib/api.js";
 import { fmtRelativo, fmtHora, fmtDiaSeparador, diaKey } from "../lib/format.js";
 import { catLabel } from "./Resumenes.jsx";
@@ -39,6 +41,10 @@ const TIPOS = [
   { value: "interno", label: "Asesores / internos" },
   { value: "cliente", label: "Clientes" },
 ];
+// Cuántas conversaciones se piden de golpe. Chico a propósito: el gateway sólo baja
+// de Chatwoot las páginas que hagan falta y sólo resuelve en el CRM a esa gente, así
+// que la lista aparece en cuanto hay algo que mostrar. El resto entra al bajar.
+const POR_PAGINA = 25;
 const ESTADO = {
   pending: { label: "Con Orvito", cls: "bg-soft text-brand-dark", dot: "bg-brand-leaf" },
   open: { label: "Con agente", cls: "bg-brand-green/10 text-brand-green", dot: "bg-brand-green" },
@@ -68,6 +74,13 @@ export default function Conversaciones() {
   // páginas que la búsqueda ya cargó. Ref porque el timer de 12s tiene closure
   // fijo (deps []).
   const filtrandoRef = useRef(false);
+  // Cuántas páginas lleva cargadas el usuario. El auto-refresco silencioso vuelve a
+  // pedir la página 1, así que sin esto le borraría lo que ya había bajado al scrollear.
+  const paginaRef = useRef(1);
+  // El observador del final de la lista puede dispararse varias veces seguidas;
+  // este cerrojo evita pedir la misma página dos veces.
+  const cargandoMasRef = useRef(false);
+  const finListaRef = useRef(null);
   // El auto-refresco de la lista pisa `items` con lo que diga Chatwoot, y ahí vuelve
   // el badge de no leídos de la conversación que estás viendo. `loadList` es un
   // useCallback con deps [filtro], así que lee el seleccionado por ref.
@@ -137,7 +150,11 @@ export default function Conversaciones() {
       const silent = opts.silent;
       if (!silent) setStatus("loading");
       try {
-        const r = await listarConversaciones({ status: filtro, page: 1 });
+        // En el refresco silencioso se vuelven a pedir TANTAS como el usuario tuviera
+        // cargadas (no sólo las primeras 25): si no, al llevar 100 bajadas se le
+        // encogería la lista sola cada 30 s.
+        const cuantas = silent ? Math.min(POR_PAGINA * paginaRef.current, 300) : POR_PAGINA;
+        const r = await listarConversaciones({ status: filtro, page: 1, porPagina: cuantas });
         // El chat que estás viendo nunca debe salir con "no leídos": si llegaron
         // mensajes mientras lo tenías abierto, Chatwoot los siguió contando, así que
         // se vuelve a marcar como visto allá y se limpia el badge aquí.
@@ -149,7 +166,10 @@ export default function Conversaciones() {
           lista = lista.map((x) => (x.id === abierta ? { ...x, no_leidos: 0 } : x));
         }
         setItems(lista);
-        setPagina(1);
+        if (!silent) {
+          setPagina(1);
+          paginaRef.current = 1;
+        }
         setHayMas(r.hayMas);
         setStatus("ready");
       } catch (e) {
@@ -258,22 +278,47 @@ export default function Conversaciones() {
     toast.success("Datos del CRM actualizados.");
   };
 
-  const cargarMas = async () => {
+  const cargarMas = useCallback(async () => {
+    if (cargandoMasRef.current) return; // el observador puede disparar varias veces
+    cargandoMasRef.current = true;
     setLoadingMore(true);
     try {
-      const r = await listarConversaciones({ status: filtro, page: pagina + 1 });
+      const siguiente = paginaRef.current + 1;
+      const r = await listarConversaciones({
+        status: filtro,
+        page: siguiente,
+        porPagina: POR_PAGINA,
+      });
       setItems((prev) => {
         const ids = new Set(prev.map((c) => c.id));
         return [...prev, ...r.conversaciones.filter((c) => !ids.has(c.id))];
       });
       setPagina(r.pagina);
+      paginaRef.current = r.pagina;
       setHayMas(r.hayMas);
     } catch (e) {
       toast.error(e.message);
     } finally {
+      cargandoMasRef.current = false;
       setLoadingMore(false);
     }
-  };
+  }, [filtro, toast]);
+
+  // Cargar al llegar abajo: se observa un elemento invisible al final de la lista.
+  // Se usa IntersectionObserver y no un onScroll porque quien hace scroll aquí es la
+  // página entera, no un contenedor propio.
+  useEffect(() => {
+    const el = finListaRef.current;
+    if (!el || !hayMas || status !== "ready") return;
+    const obs = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((e) => e.isIntersecting) && !refrescandoTodos) cargarMas();
+      },
+      { rootMargin: "300px" } // se adelanta un poco para que no se note el salto
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hayMas, status, refrescandoTodos, cargarMas]);
 
   // Al buscar por nombre o filtrar por rol, carga en cascada el resto de
   // páginas para poder encontrar conversaciones que aún no estaban cargadas
@@ -443,6 +488,8 @@ export default function Conversaciones() {
               {itemsVisibles.map((c) => (
                 <ConvItem key={c.id} c={c} active={sel === c.id} onClick={() => abrir(c.id)} />
               ))}
+              {/* Centinela: al entrar en pantalla se piden las siguientes. */}
+              <div ref={finListaRef} aria-hidden className="h-px" />
               {hayMas && (
                 <div className="pt-1">
                   <Button
@@ -924,6 +971,51 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
 
   const grupos = useMemo(() => agruparPorDia(data?.mensajes || []), [data]);
 
+  // ---- "Orvito está revisando el pipeline…" ----
+  // Sólo se pregunta cuando tiene sentido: el último mensaje es del asesor y llegó hace
+  // menos de 3 min. Fuera de eso no se consulta nada, para no pegarle al gateway de a
+  // gratis en cada chat abierto.
+  const [actividad, setActividad] = useState({ activo: false });
+  const ultimo = (data?.mensajes || [])[(data?.mensajes || []).length - 1];
+  const esperandoRespuesta =
+    !!ultimo && ultimo.de !== "orvito" && Date.now() / 1000 - Number(ultimo.fecha) < 180;
+
+  useEffect(() => {
+    if (!esperandoRespuesta || !conv?.telefono) {
+      setActividad({ activo: false });
+      return;
+    }
+    let vivo = true;
+    const mirar = async () => {
+      const a = await actividadOrvito(conv.telefono);
+      if (vivo) setActividad(a);
+    };
+    mirar();
+    const t = setInterval(mirar, 4000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, [esperandoRespuesta, conv?.telefono]);
+
+  // Orvito parte una respuesta en 2-3 mensajes, y los tres salen de la MISMA ejecución:
+  // poner el proceso debajo de cada uno era repetir tres veces lo mismo. Se marca sólo
+  // el ÚLTIMO de cada tanda seguida (mensajes de Orvito a menos de 2 min uno de otro) y
+  // ahí se cuelga la traza, que además es donde la ejecución termina.
+  const idsConTraza = useMemo(() => {
+    const ms = data?.mensajes || [];
+    const ids = new Set();
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i];
+      if (m.de !== "orvito" || m.privado) continue;
+      const sig = ms[i + 1];
+      const mismaTanda =
+        sig && sig.de === "orvito" && !sig.privado && Number(sig.fecha) - Number(m.fecha) <= 120;
+      if (!mismaTanda) ids.add(m.id);
+    }
+    return ids;
+  }, [data]);
+
   // Mientras abre: nada del chat anterior en pantalla (ni nombre, ni foto, ni globos
   // de relleno), solo el logo. Se deja el botón de volver para no dejar atrapado a
   // quien esté en el celular si la red va lenta.
@@ -1081,10 +1173,28 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
                 </span>
               </div>
               {g.mensajes.map((m) => (
-                <Mensaje key={m.id} m={m} />
+                <Mensaje
+                  key={m.id}
+                  m={m}
+                  telefono={conv?.telefono}
+                  conTraza={idsConTraza.has(m.id)}
+                />
               ))}
             </div>
           ))}
+
+        {status === "ready" && actividad.activo && (
+          <div className="flex justify-end">
+            <div className="flex max-w-[78%] items-center gap-2 rounded-2xl bg-soft/70 px-3.5 py-2.5 text-sm text-muted shadow-card">
+              <span className="flex gap-1">
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand [animation-delay:-0.3s]" />
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand [animation-delay:-0.15s]" />
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand" />
+              </span>
+              {actividad.herramienta}…
+            </div>
+          </div>
+        )}
       </div>
 
       {/* composer placeholder (solo lectura en esta fase) */}
@@ -1119,7 +1229,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
 }
 
 /* ---------- burbuja de mensaje ---------- */
-function Mensaje({ m }) {
+function Mensaje({ m, telefono, conTraza }) {
   if (m.de === "sistema") {
     return (
       <div className="flex justify-center">
@@ -1151,12 +1261,103 @@ function Mensaje({ m }) {
         {m.adjuntos.map((a, i) => (
           <Adjunto key={i} a={a} />
         ))}
+        {derecha && !m.privado && conTraza && <TrazaOrvito telefono={telefono} cuando={m.fecha} />}
         <div className={cx("text-right text-[10px]", m.privado ? "text-amber/70" : "text-muted2")}>
           {fmtHora(m.fecha)}
         </div>
       </div>
     </div>
   );
+}
+
+/* ---------- qué hizo Orvito para dar esta respuesta ----------
+   Se pide sólo al abrirlo (no en cada carga del hilo): reconstruirla implica leer la
+   ejecución de n8n, y hacerlo para los 40 mensajes de un chat sería absurdo. */
+function TrazaOrvito({ telefono, cuando }) {
+  const [abierto, setAbierto] = useState(false);
+  const [estado, setEstado] = useState("idle"); // idle | cargando | listo | vacio
+  const [traza, setTraza] = useState(null);
+
+  if (!telefono) return null;
+
+  const alternar = async () => {
+    if (abierto) return setAbierto(false);
+    setAbierto(true);
+    if (estado !== "idle") return; // ya se pidió: no se vuelve a pedir
+    setEstado("cargando");
+    try {
+      // `cuando` viene de Chatwoot en epoch SEGUNDOS (igual que fmtHora/diaKey).
+      // Mandarlo crudo daba 1970 y la ventana de búsqueda nunca coincidía.
+      const t = await trazaConversacion(telefono, new Date(Number(cuando) * 1000).toISOString());
+      setTraza(t);
+      setEstado(t.sinTraza ? "vacio" : "listo");
+    } catch {
+      setTraza({ motivo: "No pudimos leer el proceso de este mensaje." });
+      setEstado("vacio");
+    }
+  };
+
+  const pasos = (traza?.pasos || []).filter((p) => p.tipo !== "pensar");
+
+  return (
+    <div className="border-t border-line/60 pt-1.5">
+      <button
+        type="button"
+        onClick={alternar}
+        className="flex w-full items-center gap-1.5 text-[11px] font-medium text-muted2 transition-colors hover:text-brand-dark"
+      >
+        <span className={cx("transition-transform", abierto && "rotate-90")}>›</span>
+        {estado === "listo"
+          ? `${traza.herramientas} ${traza.herramientas === 1 ? "consulta" : "consultas"} · ${traza.duracion}s`
+          : "Ver qué hizo Orvito"}
+      </button>
+
+      {abierto && (
+        <div className="mt-1.5 space-y-1">
+          {estado === "cargando" && <div className="text-[11px] text-muted2">Reconstruyendo el proceso…</div>}
+          {estado === "vacio" && (
+            <div className="text-[11px] text-muted2">{traza?.motivo || "Sin proceso que mostrar."}</div>
+          )}
+          {estado === "listo" &&
+            (pasos.length === 0 ? (
+              <div className="text-[11px] text-muted2">
+                Contestó sin consultar nada: le bastó con lo que ya sabía.
+              </div>
+            ) : (
+              pasos.map((p, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px] leading-snug">
+                  <span className="w-9 shrink-0 text-right tabular-nums text-muted2">+{p.t}s</span>
+                  <span
+                    className={cx(
+                      "mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full",
+                      p.tipo === "respuesta"
+                        ? "bg-muted2"
+                        : p.estado === "ok"
+                        ? "bg-brand"
+                        : "bg-amber"
+                    )}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className={cx("font-medium", p.estado === "error" ? "text-amber" : "text-ink")}>
+                      {p.tipo === "respuesta" ? "Respondió" : p.nombre}
+                    </span>
+                    {p.detalle && <span className="text-muted2"> — {p.detalle}</span>}
+                  </span>
+                  {p.tipo !== "respuesta" && (
+                    <span className="shrink-0 tabular-nums text-muted2">{fmtDuracion(p.ms)}</span>
+                  )}
+                </div>
+              ))
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtDuracion(ms) {
+  const n = Number(ms) || 0;
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${n}ms`;
 }
 
 function Adjunto({ a }) {
