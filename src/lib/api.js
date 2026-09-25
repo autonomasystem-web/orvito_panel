@@ -187,6 +187,36 @@ export async function listarStickers() {
   const r = await call("listar_stickers", {});
   return Array.isArray(r.list) ? r.list : [];
 }
+/**
+ * Sube el .webp y devuelve su dirección definitiva.
+ *
+ * Va por su propio webhook y no por el gateway: el gateway es un nodo Code, y desde
+ * ahí n8n serializa a JSON todo lo que le pasas, así que el archivo llegaba al bucket
+ * como {"type":"Buffer","data":[...]} en vez de una imagen — el panel no la pintaba y
+ * WhatsApp no la enviaba, sin decir nada. Este flujo lo sube con un nodo HTTP Request
+ * y relee lo escrito antes de dar la URL por buena.
+ */
+export async function subirArchivoSticker(nombre, archivo_b64) {
+  if (!GATEWAY_URL) throw new ApiError("Falta configurar la URL del servidor.", "config");
+  const token = await getToken();
+  const url = GATEWAY_URL.replace(/\/orvito-admin$/, "/orvito-sticker-subir");
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ nombre, archivo_b64 }),
+    });
+  } catch {
+    throw new ApiError("No pudimos subir el archivo. Revisa tu conexión.", "network");
+  }
+  const cuerpo = await res.json().catch(() => null);
+  if (!cuerpo || cuerpo.ok === false) {
+    throw new ApiError(cuerpo?.error || "No pudimos subir el archivo.", "upload");
+  }
+  return cuerpo; // { url, nombre, animado, peso_kb }
+}
+
 export async function crearSticker(data) {
   return call("crear_sticker", data);
 }
