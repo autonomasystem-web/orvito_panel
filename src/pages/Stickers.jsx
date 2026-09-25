@@ -21,6 +21,7 @@ import {
   editarSticker,
   eliminarSticker,
   revisarSticker,
+  subirArchivoSticker,
 } from "../lib/api.js";
 import { gifAWebpAnimado } from "../lib/gif-a-webp.js";
 import { truthy } from "../lib/format.js";
@@ -82,8 +83,16 @@ export default function Stickers() {
       title: mode === "crear" ? "Confirmar nuevo sticker" : "Confirmar cambios",
       okMsg: mode === "crear" ? "Sticker agregado. Orvito ya puede usarlo." : "Cambios guardados.",
       run: async () => {
-        const r = mode === "crear" ? await crearSticker(payload) : await editarSticker({ Id, ...payload });
-        // el gateway revisa el archivo otra vez; si lo rechaza, dice por qué
+        const datos = { ...payload };
+        // Primero el archivo: si algo falla ahí, no se registra una ficha que apunte
+        // a nada. La subida devuelve la URL ya releída y comprobada.
+        if (datos.archivo_b64) {
+          const subida = await subirArchivoSticker(datos.nombre, datos.archivo_b64);
+          delete datos.archivo_b64;
+          datos.url = subida.url;
+        }
+        const r = mode === "crear" ? await crearSticker(datos) : await editarSticker({ Id, ...datos });
+        // el gateway vuelve a descargar esa URL; si no le cuadra, lo dice
         if (r && r.ok === false && r.error) throw new Error(r.error);
       },
     });
