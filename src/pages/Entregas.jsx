@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout, { PageHeader } from "../components/Layout.jsx";
 import {
@@ -16,8 +16,8 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Plus, Pencil, Trash, Calendar, MapPin } from "../components/Icons.jsx";
-import { listarEntregas, crearEntrega, editarEntrega, eliminarEntrega } from "../lib/api.js";
+import { Plus, Pencil, Trash, Calendar, MapPin, Grip, ChevronUp, ChevronDown } from "../components/Icons.jsx";
+import { listarEntregas, crearEntrega, editarEntrega, eliminarEntrega, ordenarEntregas } from "../lib/api.js";
 import { fmtFecha, truthy } from "../lib/format.js";
 
 const TIPOS = ["Privada", "Torre"];
@@ -51,6 +51,25 @@ function addMonths(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
+// Orden manual (columna `orden`, la que se arma con "Ordenar" para que coincida con el
+// Excel de ORVE). Lo que todavía no tiene orden va después, por etapa y nombre.
+const ordenNum = (e) => {
+  if (e.orden === null || e.orden === undefined || e.orden === "") return null;
+  const n = Number(e.orden);
+  return Number.isFinite(n) ? n : null;
+};
+function porOrden(a, b) {
+  const oa = ordenNum(a);
+  const ob = ordenNum(b);
+  if (oa !== null && ob !== null && oa !== ob) return oa - ob;
+  if (oa !== null && ob === null) return -1;
+  if (oa === null && ob !== null) return 1;
+  return (
+    String(a.etapa || "").localeCompare(String(b.etapa || ""), "es", { numeric: true }) ||
+    String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { numeric: true })
+  );
+}
+
 export default function Entregas() {
   const { proyecto: slug } = useParams();
   const navigate = useNavigate();
@@ -63,19 +82,27 @@ export default function Entregas() {
   const [modal, setModal] = useState(null);
   const [nuevoProy, setNuevoProy] = useState(false);
   const [toDelete, setToDelete] = useState(null);
+  // Mientras se ordena: borrador con TODAS las entregas del proyecto (también las inactivas).
+  const [ordenando, setOrdenando] = useState(null);
+  const [guardandoOrden, setGuardandoOrden] = useState(false);
+  const dragIdx = useRef(null);
 
-  const load = async () => {
-    setStatus("loading");
+  // `silencioso`: recarga sin pasar por el estado de carga. Si no, la lista se cambia por
+  // los esqueletos, la página se encoge y el navegador te regresa hasta arriba al guardar.
+  const load = async (silencioso = false) => {
+    if (!silencioso) setStatus("loading");
     try {
       setItems(await listarEntregas());
       setStatus("ready");
     } catch {
-      setStatus("error");
+      if (silencioso) toast.error("No se pudo actualizar la lista. Recarga la página.");
+      else setStatus("error");
     }
   };
   useEffect(() => {
     load();
   }, []);
+  useEffect(() => setOrdenando(null), [slug]);
 
   // Nombres de proyecto (para el autocompletado del modal)
   const proyectosNombres = useMemo(
@@ -110,17 +137,48 @@ export default function Entregas() {
     if (!proyectoSel) return [];
     let arr = items.filter((e) => e.proyecto === proyectoSel);
     if (filtro === "activos") arr = arr.filter((e) => truthy(e.activo));
-    arr.sort(
-      (a, b) =>
-        String(a.etapa || "").localeCompare(String(b.etapa || ""), "es", { numeric: true }) ||
-        String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { numeric: true })
-    );
+    arr.sort(porOrden);
     return arr;
   }, [items, proyectoSel, filtro]);
+  const totalProyecto = useMemo(
+    () => (proyectoSel ? items.filter((e) => e.proyecto === proyectoSel).length : 0),
+    [items, proyectoSel]
+  );
+
+  // Una entrega nueva va al final del orden manual (si el proyecto ya tiene uno).
+  const ordenPara = (proyecto) => {
+    const os = items.filter((x) => x.proyecto === proyecto).map(ordenNum).filter((n) => n !== null);
+    return os.length ? Math.max(...os) + 10 : null;
+  };
+
+  const empezarOrden = () => setOrdenando(items.filter((e) => e.proyecto === proyectoSel).sort(porOrden));
+  const moverOrden = (from, to) =>
+    setOrdenando((l) => {
+      if (!l || from === to || to < 0 || to >= l.length) return l;
+      const n = [...l];
+      const [mv] = n.splice(from, 1);
+      n.splice(to, 0, mv);
+      return n;
+    });
+  const guardarOrden = async () => {
+    const orden = ordenando.map((e, i) => ({ Id: e.Id, orden: (i + 1) * 10 }));
+    setGuardandoOrden(true);
+    try {
+      await ordenarEntregas(orden);
+      const porId = new Map(orden.map((o) => [o.Id, o.orden]));
+      setItems((xs) => xs.map((x) => (porId.has(x.Id) ? { ...x, orden: porId.get(x.Id) } : x)));
+      setOrdenando(null);
+      toast.success("Orden guardado.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar el orden.");
+    } finally {
+      setGuardandoOrden(false);
+    }
+  };
 
   const onSaved = async (msg) => {
     setModal(null);
-    await load();
+    await load(true);
     toast.success(msg);
   };
   const confirmDelete = async () => {
@@ -128,7 +186,7 @@ export default function Entregas() {
     setToDelete(null);
     try {
       await eliminarEntrega(e.Id);
-      await load();
+      await load(true);
       toast.success("Entrega quitada.");
     } catch (err) {
       toast.error(err.message);
@@ -177,7 +235,7 @@ export default function Entregas() {
           esDetalle ? (
             <Button
               onClick={() => setModal({ mode: "crear", data: { proyecto: proyectoSel || "" } })}
-              disabled={!proyectoSel}
+              disabled={!proyectoSel || !!ordenando}
             >
               <Plus size={18} /> Nueva entrega
             </Button>
@@ -189,7 +247,32 @@ export default function Entregas() {
         }
       />
 
-      <div className="mb-6">{filtroCtl}</div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        {ordenando ? (
+          <p className="text-sm text-muted">
+            Arrastra las entregas o usa las flechas para dejarlas en el orden del Excel. Incluye las inactivas.
+          </p>
+        ) : (
+          filtroCtl
+        )}
+        {esDetalle && status === "ready" && proyectoSel &&
+          (ordenando ? (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOrdenando(null)} disabled={guardandoOrden}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={guardarOrden} disabled={guardandoOrden}>
+                {guardandoOrden ? "Guardando…" : "Guardar orden"}
+              </Button>
+            </div>
+          ) : (
+            totalProyecto > 1 && (
+              <Button variant="outline" size="sm" onClick={empezarOrden}>
+                <Grip size={16} /> Ordenar
+              </Button>
+            )
+          ))}
+      </div>
 
       {status === "loading" &&
         (esDetalle ? (
@@ -231,7 +314,7 @@ export default function Entregas() {
         />
       )}
 
-      {status === "ready" && esDetalle && proyectoSel && entregasProyecto.length === 0 && (
+      {status === "ready" && esDetalle && proyectoSel && !ordenando && entregasProyecto.length === 0 && (
         <EmptyState
           icon={<Calendar size={22} />}
           title="Sin entregas"
@@ -248,7 +331,74 @@ export default function Entregas() {
         />
       )}
 
-      {status === "ready" && esDetalle && proyectoSel && entregasProyecto.length > 0 && (
+      {status === "ready" && esDetalle && proyectoSel && ordenando && (
+        <div className="space-y-1.5">
+          {ordenando.map((e, i) => (
+            <div
+              key={e.Id}
+              draggable
+              onDragStart={(ev) => {
+                dragIdx.current = i;
+                ev.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(ev) => {
+                ev.preventDefault();
+                if (dragIdx.current !== null && dragIdx.current !== i) {
+                  moverOrden(dragIdx.current, i);
+                  dragIdx.current = i;
+                }
+              }}
+              onDrop={(ev) => ev.preventDefault()}
+              onDragEnd={() => (dragIdx.current = null)}
+              className={cx(
+                "flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2.5 shadow-card",
+                !truthy(e.activo) && "opacity-60"
+              )}
+            >
+              <span className="cursor-grab text-muted2 active:cursor-grabbing" aria-hidden>
+                <Grip size={18} />
+              </span>
+              <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-muted">{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">
+                  {e.etapa || "—"} · {unidadTxt(e)}
+                </p>
+                <p className="truncate text-xs text-muted">
+                  {[
+                    e.info_cliente && `Cliente: ${e.info_cliente}`,
+                    e.fecha_entrega && `Entrega ideal ${fmtFecha(e.fecha_entrega)}`,
+                    !truthy(e.activo) && "Inactiva",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-0.5">
+                <button
+                  onClick={() => moverOrden(i, i - 1)}
+                  disabled={i === 0}
+                  className="rounded-lg p-1.5 text-muted2 hover:bg-soft hover:text-ink disabled:opacity-30"
+                  aria-label="Subir"
+                  title="Subir"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  onClick={() => moverOrden(i, i + 1)}
+                  disabled={i === ordenando.length - 1}
+                  className="rounded-lg p-1.5 text-muted2 hover:bg-soft hover:text-ink disabled:opacity-30"
+                  aria-label="Bajar"
+                  title="Bajar"
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {status === "ready" && esDetalle && proyectoSel && !ordenando && entregasProyecto.length > 0 && (
         <div className="seq cards-lift space-y-3">
           {entregasProyecto.map((e) => (
             <EntregaCard
@@ -307,6 +457,7 @@ export default function Entregas() {
           mode={modal.mode}
           data={modal.data}
           proyectos={proyectosNombres}
+          ordenPara={ordenPara}
           onClose={() => setModal(null)}
           onSaved={onSaved}
         />
@@ -472,7 +623,7 @@ function DateItem({ label, value, muted, strong }) {
 }
 
 /* --------- Modal --------- */
-function EntregaModal({ mode, data, proyectos, onClose, onSaved }) {
+function EntregaModal({ mode, data, proyectos, ordenPara, onClose, onSaved }) {
   const toast = useToast();
   const [proyecto, setProyecto] = useState(data.proyecto || "");
   const [etapa, setEtapa] = useState(data.etapa || "");
@@ -513,7 +664,11 @@ function EntregaModal({ mode, data, proyectos, onClose, onSaved }) {
         info_cliente: infoCliente.trim(),
         activo,
       };
-      if (mode === "crear") await crearEntrega(payload);
+      if (mode === "crear") {
+        const orden = ordenPara(payload.proyecto);
+        if (orden !== null) payload.orden = orden;
+        await crearEntrega(payload);
+      }
       else await editarEntrega({ Id: data.Id, ...payload });
       onSaved(mode === "crear" ? "Entrega agregada." : "Cambios guardados.");
     } catch (e) {
