@@ -203,6 +203,26 @@ export const ChevronRight = ({ size }) => (
     <path d="m9 18 6-6-6-6" />
   </svg>
 );
+export const ChevronUp = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="m18 15-6-6-6 6" />
+  </svg>
+);
+export const ChevronDown = ({ size }) => (
+  <svg {...base(size)}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+export const Grip = ({ size }) => (
+  <svg {...base(size)}>
+    <circle cx="9" cy="5" r="1" />
+    <circle cx="9" cy="12" r="1" />
+    <circle cx="9" cy="19" r="1" />
+    <circle cx="15" cy="5" r="1" />
+    <circle cx="15" cy="12" r="1" />
+    <circle cx="15" cy="19" r="1" />
+  </svg>
+);
 
 // Sticker: hoja con la esquina doblada (asi se ven en WhatsApp) y una carita.
 export const Sticker = ({ size }) => (

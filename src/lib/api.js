@@ -160,6 +160,10 @@ export async function editarEntrega(data) {
 export async function eliminarEntrega(Id) {
   return call("eliminar_entrega", { Id });
 }
+// Orden manual de las entregas de un proyecto: [{ Id, orden }] en una sola llamada.
+export async function ordenarEntregas(orden) {
+  return call("ordenar_entregas", { orden });
+}
 
 /* ----------------- Temas / Alcance de Orvito (solo admin) ----------------- */
 // Temas que Orvito reconoce y busca en el RAG. Editar aquí actualiza el alcance
