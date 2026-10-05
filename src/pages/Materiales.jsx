@@ -16,7 +16,7 @@ import {
   cx,
   useToast,
 } from "../components/ui.jsx";
-import { Plus, Copy, Check, Dots, Pencil, Trash, Folder } from "../components/Icons.jsx";
+import { Plus, Copy, Check, Dots, Pencil, Trash, Folder, Search, X } from "../components/Icons.jsx";
 import { listarBrochures, crearBrochure, editarBrochure, eliminarBrochure } from "../lib/api.js";
 import { normalizeDropbox, isHttps, truthy } from "../lib/format.js";
 
@@ -41,11 +41,35 @@ function slugify(s) {
     .replace(/^-+|-+$/g, "");
 }
 
+// Para buscar sin importar acentos ni mayusculas.
+const sinAcentos = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+const tipoTxt = (t) => (esTipoVideo(t) ? "video youtube" : String(t || "brochure").toLowerCase() === "imagen" ? "imagen" : "brochure pdf");
+// Todo lo que se puede buscar de un material.
+const textoDe = (b) =>
+  sinAcentos([b.proyecto, b.categoria, tipoTxt(b.tipo), b.descripcion, b.notas, b.url, b.url_en].filter(Boolean).join(" "));
+
 export default function Materiales() {
   const { proyecto: slug } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const nombreParam = searchParams.get("nombre") || ""; // proyecto nuevo aún sin materiales
+  // Buscador de TODOS los materiales (de todos los proyectos). Vive en la URL (?q=) para que
+  // no se pierda al recargar ni al volver atras.
+  const q = searchParams.get("q") || "";
+  const setQ = (v) =>
+    setSearchParams(
+      (sp) => {
+        const n = new URLSearchParams(sp);
+        if (v) n.set("q", v);
+        else n.delete("q");
+        return n;
+      },
+      { replace: true }
+    );
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -54,13 +78,16 @@ export default function Materiales() {
   const [nuevoProy, setNuevoProy] = useState(false);
   const [toDelete, setToDelete] = useState(null);
 
-  const load = async () => {
-    setStatus("loading");
+  // `silencioso`: recarga sin pasar por el estado de carga, para no regresar hasta arriba
+  // (ni perder la busqueda) despues de guardar.
+  const load = async (silencioso = false) => {
+    if (!silencioso) setStatus("loading");
     try {
       setItems(await listarBrochures());
       setStatus("ready");
     } catch {
-      setStatus("error");
+      if (silencioso) toast.error("No se pudo actualizar la lista. Recarga la página.");
+      else setStatus("error");
     }
   };
   useEffect(() => {
@@ -109,15 +136,39 @@ export default function Materiales() {
       .sort((a, b) => a.categoria.localeCompare(b.categoria, "es"));
   }, [items, proyectoSel, filtro]);
 
+  // Resultados del buscador: cada palabra tiene que aparecer en algun campo del material.
+  const resultados = useMemo(() => {
+    const palabras = sinAcentos(q).split(/\s+/).filter(Boolean);
+    if (!palabras.length) return null;
+    let arr = items.filter((b) => {
+      const t = textoDe(b);
+      return palabras.every((p) => t.includes(p));
+    });
+    if (filtro === "activos") arr = arr.filter((b) => truthy(b.activo));
+    const m = new Map();
+    for (const b of arr) {
+      const p = b.proyecto || "(sin proyecto)";
+      if (!m.has(p)) m.set(p, []);
+      m.get(p).push(b);
+    }
+    const grupos = [...m.entries()]
+      .map(([proyecto, mats]) => ({
+        proyecto,
+        mats: mats.sort((a, b) => String(a.categoria || "").localeCompare(String(b.categoria || ""), "es")),
+      }))
+      .sort((a, b) => a.proyecto.localeCompare(b.proyecto, "es"));
+    return { total: arr.length, grupos };
+  }, [items, q, filtro]);
+
   const onSaved = async (msg) => {
     setModal(null);
-    await load();
+    await load(true);
     toast.success(msg);
   };
   const quickToggle = async (b) => {
     try {
       await editarBrochure({ Id: b.Id, activo: !truthy(b.activo) });
-      await load();
+      await load(true);
       toast.success(truthy(b.activo) ? "Material desactivado." : "Material activado.");
     } catch (e) {
       toast.error(e.message);
@@ -128,7 +179,7 @@ export default function Materiales() {
     setToDelete(null);
     try {
       await eliminarBrochure(b.Id);
-      await load();
+      await load(true);
       toast.success("Material eliminado.");
     } catch (e) {
       toast.error(e.message);
@@ -179,7 +230,31 @@ export default function Materiales() {
         }
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:max-w-md sm:flex-1">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted2">
+            <Search size={18} />
+          </span>
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setQ("")}
+            placeholder="Buscar en todos los materiales (proyecto, categoría, descripción…)"
+            className="pl-10 pr-10"
+            aria-label="Buscar en todos los materiales"
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted2 hover:bg-soft hover:text-ink"
+              aria-label="Limpiar búsqueda"
+              title="Limpiar búsqueda"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
         <Segmented
           value={filtro}
           onChange={setFiltro}
@@ -189,6 +264,53 @@ export default function Materiales() {
           ]}
         />
       </div>
+
+      {/* ---------- RESULTADOS DEL BUSCADOR (todos los proyectos) ---------- */}
+      {status === "ready" && resultados && (
+        <div className="seq space-y-6">
+          <p className="text-sm text-muted">
+            {resultados.total === 0 ? (
+              <>Ningún material coincide con <b className="text-ink">«{q.trim()}»</b>{filtro === "activos" && " entre los activos"}.</>
+            ) : (
+              <>
+                <b className="text-ink">{resultados.total}</b> {resultados.total === 1 ? "material coincide" : "materiales coinciden"} con{" "}
+                <b className="text-ink">«{q.trim()}»</b> en {resultados.grupos.length}{" "}
+                {resultados.grupos.length === 1 ? "proyecto" : "proyectos"}.
+              </>
+            )}
+            {resultados.total === 0 && filtro === "activos" && (
+              <button type="button" className="ml-2 font-semibold text-brand-green underline" onClick={() => setFiltro("todos")}>
+                Buscar también en los inactivos
+              </button>
+            )}
+          </p>
+          {resultados.grupos.map(({ proyecto, mats }) => (
+            <div key={proyecto}>
+              <button
+                type="button"
+                onClick={() => navigate(`/materiales/${slugify(proyecto)}`)}
+                className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand-dark hover:underline"
+                title="Abrir el proyecto"
+              >
+                <Folder size={16} /> {proyecto}
+                <span className="rounded-full bg-soft px-2 py-0.5 text-[11px] font-semibold text-brand-dark">{mats.length}</span>
+              </button>
+              <div className="cards-lift grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {mats.map((b) => (
+                  <MaterialCard
+                    key={b.Id}
+                    b={b}
+                    contexto={(b.categoria || "General").trim() || "General"}
+                    onEdit={() => setModal({ mode: "editar", data: b })}
+                    onDelete={() => setToDelete(b)}
+                    onToggle={() => quickToggle(b)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {status === "loading" && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -211,7 +333,7 @@ export default function Materiales() {
       )}
 
       {/* ---------- DETALLE: /materiales/:slug ---------- */}
-      {status === "ready" && esDetalle && !proyectoSel && (
+      {status === "ready" && !resultados && esDetalle && !proyectoSel && (
         <EmptyState
           icon={<Folder size={22} />}
           title="Proyecto no encontrado"
@@ -220,7 +342,7 @@ export default function Materiales() {
         />
       )}
 
-      {status === "ready" && esDetalle && proyectoSel && gruposCat.length === 0 && (
+      {status === "ready" && !resultados && esDetalle && proyectoSel && gruposCat.length === 0 && (
         <EmptyState
           icon={<Folder size={22} />}
           title="Sin materiales"
@@ -237,7 +359,7 @@ export default function Materiales() {
         />
       )}
 
-      {status === "ready" && esDetalle && proyectoSel && gruposCat.length > 0 && (
+      {status === "ready" && !resultados && esDetalle && proyectoSel && gruposCat.length > 0 && (
         <div className="seq space-y-6">
           {gruposCat.map(({ categoria, mats }) => (
             <div key={categoria}>
@@ -264,7 +386,7 @@ export default function Materiales() {
       )}
 
       {/* ---------- ÍNDICE: /materiales ---------- */}
-      {status === "ready" && !esDetalle && bloques.length === 0 && (
+      {status === "ready" && !resultados && !esDetalle && bloques.length === 0 && (
         <EmptyState
           icon={<Folder size={22} />}
           title={filtro === "activos" ? "Aún no hay proyectos con materiales" : "Sin proyectos"}
@@ -277,7 +399,7 @@ export default function Materiales() {
         />
       )}
 
-      {status === "ready" && !esDetalle && bloques.length > 0 && (
+      {status === "ready" && !resultados && !esDetalle && bloques.length > 0 && (
         <div className="seq grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {bloques.map((b) => (
             <ProyectoBlock key={b.slug} b={b} onClick={() => navigate(`/materiales/${b.slug}`)} />
@@ -406,7 +528,7 @@ function NuevoProyectoModal({ onClose, onCrear }) {
 }
 
 /* --------- Card de material --------- */
-function MaterialCard({ b, onEdit, onDelete, onToggle }) {
+function MaterialCard({ b, onEdit, onDelete, onToggle, contexto }) {
   const [menu, setMenu] = useState(false);
   const activo = truthy(b.activo);
   const esImg = (b.tipo || "brochure") === "imagen";
@@ -428,6 +550,7 @@ function MaterialCard({ b, onEdit, onDelete, onToggle }) {
             {esVid ? "Video" : esImg ? "Imagen" : "Brochure"}
           </span>
           <StatusChip estado={activo ? "Activo" : "Inactivo"} />
+          {contexto && <span className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{contexto}</span>}
         </div>
         <div className="relative">
           <button
