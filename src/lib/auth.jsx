@@ -7,8 +7,6 @@ const AuthCtx = createContext(null);
 // El candado REAL también está en el gateway; esto es solo la capa de UI.
 const ADMIN_EMAILS = [
   "emilianotkpa@gmail.com",
-  "fernanda.montero@grupoorve.mx",
-  "jesus.sotres@grupoorve.mx",
   "carlos.garrido@grupoorve.mx",
   "jose.martinez@grupoorve.mx",
   "carla.briceno@grupoorve.mx",
