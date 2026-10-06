@@ -570,11 +570,18 @@ function EntregaCard({ e, onEdit, onDelete }) {
             </h3>
             <StatusChip estado={activo ? "Activo" : "Inactivo"} />
           </div>
-          {e.info_cliente && (
-            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-brand-leaf/15 px-2.5 py-0.5 text-xs font-semibold text-brand-green">
-              <Calendar size={12} /> Cliente: {e.info_cliente}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1.5">
+            {e.info_cliente && (
+              <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-brand-leaf/15 px-2.5 py-0.5 text-xs font-semibold text-brand-green">
+                <Calendar size={12} /> Cliente: {e.info_cliente}
+              </div>
+            )}
+            {e.info_escrituracion && (
+              <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
+                Escrituración: {e.info_escrituracion}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
@@ -601,6 +608,7 @@ function EntregaCard({ e, onEdit, onDelete }) {
         <DateItem label="Entrega (ideal)" value={e.fecha_entrega} />
         <DateItem label={`+${e.meses_prorroga ?? 12} meses prórroga`} value={prorroga} muted />
         <DateItem label="Entrega REAL" value={e.fecha_entrega_real} strong />
+        {e.inicio_escrituracion && <DateItem label="Inicio escrituración (tentativo)" value={e.inicio_escrituracion} />}
       </div>
     </Card>
   );
@@ -640,6 +648,10 @@ function EntregaModal({ mode, data, proyectos, ordenPara, onClose, onSaved }) {
     data.fecha_entrega_real ? String(data.fecha_entrega_real).slice(0, 10) : ""
   );
   const [infoCliente, setInfoCliente] = useState(data.info_cliente || "");
+  const [inicioEscrituracion, setInicioEscrituracion] = useState(
+    data.inicio_escrituracion ? String(data.inicio_escrituracion).slice(0, 10) : ""
+  );
+  const [infoEscrituracion, setInfoEscrituracion] = useState(data.info_escrituracion || "");
   const [activo, setActivo] = useState(mode === "crear" ? true : truthy(data.activo));
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -662,6 +674,8 @@ function EntregaModal({ mode, data, proyectos, ordenPara, onClose, onSaved }) {
         meses_prorroga: Number(meses) || 12,
         fecha_entrega_real: fechaReal || null,
         info_cliente: infoCliente.trim(),
+        inicio_escrituracion: inicioEscrituracion || null,
+        info_escrituracion: infoEscrituracion.trim(),
         activo,
       };
       if (mode === "crear") {
@@ -778,6 +792,22 @@ function EntregaModal({ mode, data, proyectos, ordenPara, onClose, onSaved }) {
           onChange={(e) => setInfoCliente(e.target.value)}
         />
       </Field>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Inicio de escrituración (tentativo)" hint="Fecha programada; Orvito siempre la dice como tentativa.">
+          <Input type="date" value={inicioEscrituracion} onChange={(e) => setInicioEscrituracion(e.target.value)} />
+        </Field>
+        <Field
+          label="Escrituración: lo que se comunica al cliente"
+          hint="Ej. 'Octubre 2026 (tentativo)', 'Ya se puede iniciar', 'Sin fecha'. Si queda vacío, Orvito remite a Escrituración."
+        >
+          <Input
+            placeholder="Ej. Octubre 2026 (tentativo)"
+            value={infoEscrituracion}
+            onChange={(e) => setInfoEscrituracion(e.target.value)}
+          />
+        </Field>
+      </div>
 
       <div className="flex items-center justify-between rounded-xl bg-softer px-4 py-3">
         <div>
