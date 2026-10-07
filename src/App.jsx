@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth.jsx";
 import Login from "./pages/Login.jsx";
 import Materiales from "./pages/Materiales.jsx";
-import Promociones from "./pages/Promociones.jsx";
 import Conversaciones from "./pages/Conversaciones.jsx";
 import Resumenes from "./pages/Resumenes.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -66,14 +65,6 @@ export default function App() {
         element={
           <Protected>
             <Materiales />
-          </Protected>
-        }
-      />
-      <Route
-        path="/promociones"
-        element={
-          <Protected>
-            <Promociones />
           </Protected>
         }
       />
