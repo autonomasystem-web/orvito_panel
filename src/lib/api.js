@@ -460,3 +460,13 @@ export async function guardarEsfuerzos(items) {
   const r = await call("guardar_esfuerzos", { items });
   return Array.isArray(r.esfuerzos) ? r.esfuerzos : [];
 }
+
+/* ----------------- Temas no resueltos ----------------- */
+// Los registra el agente cuando no pudo responder algo (marca [NO_RESUELTO: …]).
+export async function listarNoResueltos() {
+  const r = await call("listar_no_resueltos", {});
+  return Array.isArray(r.data) ? r.data : [];
+}
+export async function resolverNoResuelto(Id, quien) {
+  return call("editar_no_resuelto", { Id, activo: false, estado: "resuelto", resuelto_por: quien || "" });
+}

@@ -17,8 +17,8 @@ import {
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import { Card, Skeleton, EmptyState, ErrorState, cx } from "../components/ui.jsx";
-import { Sparkles, Chat, Folder, Percent } from "../components/Icons.jsx";
-import { dashboardMetricas } from "../lib/api.js";
+import { Sparkles, Chat, Folder } from "../components/Icons.jsx";
+import { dashboardMetricas, listarNoResueltos, resolverNoResuelto } from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 import { catLabel } from "./Resumenes.jsx";
 
@@ -66,8 +66,29 @@ const RANGOS = [
 ];
 
 export default function Dashboard() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [rango, setRango] = useState("7d");
+  // Temas que Orvito no pudo responder (los registra el agente). Se cargan aparte de las métricas.
+  const [noRes, setNoRes] = useState([]);
+  const cargarNoRes = useCallback(async () => {
+    try {
+      setNoRes(await listarNoResueltos());
+    } catch (e) {
+      /* si falla, el resto del dashboard sigue */
+    }
+  }, []);
+  useEffect(() => {
+    cargarNoRes();
+  }, [cargarNoRes]);
+  const resolver = async (t) => {
+    if (!window.confirm(`¿Marcar como resuelto "${t.tema || "este tema"}"?`)) return;
+    try {
+      await resolverNoResuelto(t.Id, user?.email);
+      setNoRes((l) => l.filter((x) => x.Id !== t.Id));
+    } catch (e) {
+      window.alert("No se pudo marcar como resuelto. Intenta de nuevo.");
+    }
+  };
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [refetching, setRefetching] = useState(false);
@@ -98,7 +119,10 @@ export default function Dashboard() {
   // Auto-refresh cada 5 min, solo con la pestaña visible
   useEffect(() => {
     const tick = () => {
-      if (document.visibilityState === "visible") load(true);
+      if (document.visibilityState === "visible") {
+        load(true);
+        cargarNoRes();
+      }
     };
     timer.current = setInterval(tick, 5 * 60 * 1000);
     return () => clearInterval(timer.current);
@@ -156,7 +180,7 @@ export default function Dashboard() {
               title="¿La herramienta funciona bien?"
               hint="Salud del sistema en el periodo."
             />
-            <KpiOperacion k={data.kpis} config={data.config} />
+            <KpiOperacion k={data.kpis} config={data.config} noResueltos={noRes.length} />
             <SerieDiaria serie={data.serie_diaria} />
           </section>
 
@@ -172,6 +196,7 @@ export default function Dashboard() {
               <AdopcionCard k={data.kpis} />
             </div>
             <GapsConocimiento gaps={data.gaps} />
+            <TemasNoResueltos items={noRes} canEdit={isAdmin} onResolver={resolver} />
             <ProximamenteNota />
           </section>
 
@@ -279,7 +304,7 @@ function Trend({ value, suffix = "", invert = false }) {
   );
 }
 
-function KpiOperacion({ k, config }) {
+function KpiOperacion({ k, config, noResueltos = 0 }) {
   const cards = [
     {
       label: "Conversaciones",
@@ -307,10 +332,11 @@ function KpiOperacion({ k, config }) {
       icon: <Folder size={18} />,
     },
     {
-      label: "Promos vigentes",
-      value: config.promos_vigentes ?? 0,
-      sub: "en curso",
-      icon: <Percent size={18} />,
+      label: "Temas sin resolver",
+      value: noResueltos,
+      sub: "Orvito no tuvo la respuesta",
+      icon: <Sparkles size={18} />,
+      dot: noResueltos > 0,
     },
   ];
   return (
@@ -444,6 +470,65 @@ function GapsConocimiento({ gaps }) {
     </Card>
   );
 }
+/* ---------------- Estratégico: temas que Orvito no pudo responder ---------------- */
+function TemasNoResueltos({ items, canEdit, onResolver }) {
+  const cuando = (iso) => {
+    const d = iso ? new Date(iso) : null;
+    return d && !Number.isNaN(+d)
+      ? d.toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+      : "";
+  };
+  return (
+    <Card className="p-4 md:p-5">
+      <SectionTitle
+        title="Temas no resueltos"
+        hint="Lo que Orvito no pudo responder. Complétalo (Conocimiento, Temas o el CRM) y márcalo como resuelto."
+      />
+      {!items.length ? (
+        <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-line bg-softer/60 px-4 text-center text-sm text-muted2">
+          Sin temas pendientes.
+        </div>
+      ) : (
+        <ul className="divide-y divide-line">
+          {items.map((t) => (
+            <li key={t.Id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs font-semibold text-amber">{t.tema || "Sin tema"}</span>
+                  <span className="text-xs text-muted2">
+                    {t.asesor || "Asesor"}
+                    {cuando(t.fecha) ? ` · ${cuando(t.fecha)}` : ""}
+                  </span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-sm text-ink">“{t.pregunta}”</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {t.conversation_id ? (
+                  <Link
+                    to={`/conversaciones?conv=${t.conversation_id}${t.mensaje_id ? `&msg=${t.mensaje_id}` : ""}`}
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand-dark hover:bg-soft"
+                  >
+                    Ver mensaje
+                  </Link>
+                ) : null}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onResolver(t)}
+                    className="rounded-lg bg-soft px-3 py-1.5 text-xs font-semibold text-brand-dark hover:bg-brand-leaf/20"
+                  >
+                    Marcar resuelto
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 // El tema puede ser un proyecto (legible tal cual) o una categoría conocida.
 function gapLabel(tema) {
   if (!tema) return "Sin clasificar";

@@ -799,6 +799,10 @@ function fusionarMensajes(previos, nuevos) {
 }
 
 function Detalle({ id, onBack, onEstadoCambiado }) {
+  // Viene de "Temas no resueltos" (?conv=…&msg=…): se lleva la vista al mensaje y se resalta.
+  const [spDetalle] = useSearchParams();
+  const msgObjetivo = String(spDetalle.get("conv")) === String(id) ? spDetalle.get("msg") : null;
+  const msgYaVisto = useRef(null);
   const toast = useToast();
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -970,6 +974,17 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
   const est = ESTADO[conv?.status] || ESTADO.pending;
 
   const grupos = useMemo(() => agruparPorDia(data?.mensajes || []), [data]);
+  useEffect(() => {
+    if (!msgObjetivo || !data || msgYaVisto.current === msgObjetivo) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById("msg-" + msgObjetivo);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        msgYaVisto.current = msgObjetivo;
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [msgObjetivo, data]);
 
   // ---- "Orvito está revisando el pipeline…" ----
   // Sólo se pregunta cuando tiene sentido: el último mensaje es del asesor y llegó hace
@@ -1178,6 +1193,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
                   m={m}
                   telefono={conv?.telefono}
                   conTraza={idsConTraza.has(m.id)}
+                  resaltado={msgObjetivo != null && String(m.id) === String(msgObjetivo)}
                 />
               ))}
             </div>
@@ -1229,10 +1245,10 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
 }
 
 /* ---------- burbuja de mensaje ---------- */
-function Mensaje({ m, telefono, conTraza }) {
+function Mensaje({ m, telefono, conTraza, resaltado }) {
   if (m.de === "sistema") {
     return (
-      <div className="flex justify-center">
+      <div id={`msg-${m.id}`} className="flex justify-center">
         <span className="max-w-[85%] rounded-full bg-white/70 px-3 py-1 text-center text-[11px] text-muted2">
           {m.texto}
         </span>
@@ -1241,10 +1257,11 @@ function Mensaje({ m, telefono, conTraza }) {
   }
   const derecha = m.de === "orvito";
   return (
-    <div className={cx("flex", derecha ? "justify-end" : "justify-start")}>
+    <div id={`msg-${m.id}`} className={cx("flex", derecha ? "justify-end" : "justify-start")}>
       <div
         className={cx(
           "max-w-[78%] space-y-2 rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-card",
+          resaltado && "ring-2 ring-amber ring-offset-2",
           m.privado
             ? "border border-amber/30 bg-amber/10 text-ink"
             : derecha

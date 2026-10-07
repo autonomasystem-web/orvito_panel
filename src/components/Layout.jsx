@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Grid, Folder, Percent, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain, Bars, ChevronLeft, ChevronRight, Sticker } from "./Icons.jsx";
+import { Grid, Folder, Chat, Sparkles, Logout, Key, Newspaper, Book, Calendar, Brain, Bars, ChevronLeft, ChevronRight, Sticker } from "./Icons.jsx";
 import { cx } from "./ui.jsx";
 import { useAuth } from "../lib/auth.jsx";
 import ChangePasswordModal from "./ChangePasswordModal.jsx";
@@ -11,7 +11,6 @@ import { LOGO_WHITE } from "../assets/brand.js";
 const NAV = [
   { to: "/", label: "Dashboard", short: "Dashboard", icon: Grid, end: true },
   { to: "/materiales", label: "Materiales", short: "Materiales", icon: Folder },
-  { to: "/promociones", label: "Promociones", short: "Promos", icon: Percent },
   { to: "/blogs", label: "Blogs", short: "Blogs", icon: Newspaper },
   { to: "/entregas", label: "Entregas", short: "Entregas", icon: Calendar },
   { to: "/documentos", label: "Conocimiento", short: "Docs", icon: Book },
