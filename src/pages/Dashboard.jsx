@@ -81,12 +81,18 @@ export default function Dashboard() {
     cargarNoRes();
   }, [cargarNoRes]);
   const resolver = async (t) => {
-    if (!window.confirm(`¿Marcar como resuelto "${t.tema || "este tema"}"?`)) return;
+    // Solo quita el tema de esta lista: no cierra la conversación ni apaga a Orvito.
+    if (
+      !window.confirm(
+        `¿Ya cargaron la información para que Orvito responda "${t.tema || "este tema"}"?\n\nSe quita de esta lista. La conversación y Orvito siguen igual.`
+      )
+    )
+      return;
     try {
       await resolverNoResuelto(t.Id, user?.email);
       setNoRes((l) => l.filter((x) => x.Id !== t.Id));
     } catch (e) {
-      window.alert("No se pudo marcar como resuelto. Intenta de nuevo.");
+      window.alert("No se pudo quitar de la lista. Intenta de nuevo.");
     }
   };
   const [data, setData] = useState(null);
@@ -482,7 +488,7 @@ function TemasNoResueltos({ items, canEdit, onResolver }) {
     <Card className="p-4 md:p-5">
       <SectionTitle
         title="Temas no resueltos"
-        hint="Lo que Orvito no pudo responder. Complétalo (Conocimiento, Temas o el CRM) y márcalo como resuelto."
+        hint="Lo que Orvito no pudo responder porque no tenía la información. Cárguenla (Conocimiento, Temas o el CRM) y pulsen «Ya lo responde». No afecta la conversación."
       />
       {!items.length ? (
         <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-line bg-softer/60 px-4 text-center text-sm text-muted2">
@@ -515,9 +521,10 @@ function TemasNoResueltos({ items, canEdit, onResolver }) {
                   <button
                     type="button"
                     onClick={() => onResolver(t)}
+                    title="Ya se cargó la información. Solo lo quita de esta lista."
                     className="rounded-lg bg-soft px-3 py-1.5 text-xs font-semibold text-brand-dark hover:bg-brand-leaf/20"
                   >
-                    Marcar resuelto
+                    Ya lo responde
                   </button>
                 )}
               </div>
