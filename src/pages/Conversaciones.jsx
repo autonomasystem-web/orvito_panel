@@ -599,6 +599,36 @@ function EstadoCrmBadge({ estado, size = "sm" }) {
   );
 }
 
+/**
+ * Asesor verificado cuyo chat NO está con Orvito. El agente solo contesta en "Con Orvito"
+ * (pending): en "Con agente" los mensajes nuevos caen en el mismo chat y nadie responde hasta
+ * que lo devuelvan; en "Resuelta", si vuelve a escribir, Chatwoot abre un chat nuevo con Orvito.
+ */
+const SIN_ORVITO = {
+  open: {
+    label: "Orvito no contesta aquí",
+    title: "Está con un agente: mientras siga así, Orvito no responde. Si nadie lo atiende, usa «Devolver a Orvito».",
+  },
+  resolved: {
+    label: "Resuelto: sin Orvito",
+    title: "Se marcó como resuelto y Orvito ya no atiende este chat. Si el asesor vuelve a escribir, se abre uno nuevo con Orvito.",
+  },
+};
+function AvisoSinOrvito({ tipo, status, size = "sm" }) {
+  const a = tipo === "interno" ? SIN_ORVITO[status] : null;
+  if (!a) return null;
+  const pad = size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[10px]";
+  return (
+    <span
+      title={a.title}
+      className={cx("inline-flex items-center gap-1 rounded-full bg-orange-50 font-semibold text-orange-700 ring-1 ring-orange-200", pad)}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+      {a.label}
+    </span>
+  );
+}
+
 /** Foto de perfil del asesor (avatar_url del CRM). Fallback: iniciales o ícono. */
 function initialsOf(name) {
   const s = String(name || "").trim();
@@ -795,6 +825,7 @@ function ConvItem({ c, active, onClick }) {
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
             <EstadoCrmBadge estado={c.crm_estado} />
+            <AvisoSinOrvito tipo={c.tipo} status={c.status} />
             {c.hilos > 1 && (
               <span
                 className="rounded-full bg-softer px-1.5 py-0.5 text-[10px] font-medium text-muted2"
@@ -1116,6 +1147,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
               </p>
               {conv && <TipoBadge tipo={conv.tipo} rol={conv.crm_rol} />}
               {conv && <EstadoCrmBadge estado={conv.crm_estado} />}
+              {conv && <AvisoSinOrvito tipo={conv.tipo} status={conv.status} />}
             </div>
             <p className="truncate text-xs text-muted">
               {[conv?.crm_sucursal, conv?.telefono].filter(Boolean).join(" · ")}
