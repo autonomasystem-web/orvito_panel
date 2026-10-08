@@ -261,6 +261,7 @@ export default function Conversaciones() {
                   ...x,
                   tipo: r.tipo,
                   crm_rol: r.crm_rol,
+                  crm_estado: r.crm_estado,
                   crm_avatar: r.crm_avatar,
                   crm_nombre: r.crm_nombre,
                   crm_sucursal: r.crm_sucursal,
@@ -565,6 +566,39 @@ function TipoBadge({ tipo, rol, size = "sm" }) {
   );
 }
 
+/**
+ * Asesor que el CRM dejó de reconocer: se conserva su rol y se avisa en amarillo qué pasó.
+ * Lo pone el gateway (y Orvito al contestarle); se quita solo cuando el CRM lo vuelve a reconocer.
+ */
+const ESTADOS_CRM = {
+  reverificar: {
+    label: "Necesita reverificación",
+    title: "Su teléfono quedó sin verificar en el CRM (pasa al actualizar sus datos). Orvito ya le pidió verificarlo.",
+  },
+  sin_permiso: {
+    label: "Sin permiso en el CRM",
+    title: "Su usuario del CRM no tiene activado el permiso de Orvito (extraer datos). Lo activa ORVE en su perfil.",
+  },
+  desactualizado: {
+    label: "Número desactualizado",
+    title: "Este número ya no aparece en su usuario del CRM (¿cambió de teléfono?). Orvito ya le pidió actualizarlo.",
+  },
+};
+function EstadoCrmBadge({ estado, size = "sm" }) {
+  const e = ESTADOS_CRM[estado];
+  if (!e) return null;
+  const pad = size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[10px]";
+  return (
+    <span
+      title={e.title}
+      className={cx("inline-flex items-center gap-1 rounded-full bg-yellow-100 font-semibold text-yellow-800 ring-1 ring-yellow-300", pad)}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+      {e.label}
+    </span>
+  );
+}
+
 /** Foto de perfil del asesor (avatar_url del CRM). Fallback: iniciales o ícono. */
 function initialsOf(name) {
   const s = String(name || "").trim();
@@ -760,6 +794,7 @@ function ConvItem({ c, active, onClick }) {
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <TipoBadge tipo={c.tipo} rol={c.crm_rol} />
+            <EstadoCrmBadge estado={c.crm_estado} />
             {c.hilos > 1 && (
               <span
                 className="rounded-full bg-softer px-1.5 py-0.5 text-[10px] font-medium text-muted2"
@@ -950,6 +985,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
                 tipo: r.tipo,
                 crm_nombre: r.crm_nombre,
                 crm_rol: r.crm_rol,
+                crm_estado: r.crm_estado,
                 crm_sucursal: r.crm_sucursal,
                 crm_avatar: r.crm_avatar,
                 nombre_mostrar: r.nombre_mostrar,
@@ -958,11 +994,15 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
           : prev
       );
       onEstadoCambiado?.(); // refresca también la lista
-      toast.success(
-        r.tipo === "interno"
-          ? `Actualizado: ${r.crm_rol || "asesor"}`
-          : "Actualizado: aún sin verificar en el CRM"
-      );
+      if (r.sin_respuesta_crm) toast.error("El CRM no respondió; se queda como estaba.");
+      else if (ESTADOS_CRM[r.crm_estado])
+        toast.error(`${r.crm_rol || "Asesor"}: ${ESTADOS_CRM[r.crm_estado].label.toLowerCase()}`);
+      else
+        toast.success(
+          r.tipo === "interno"
+            ? `Actualizado: ${r.crm_rol || "asesor"}`
+            : "Actualizado: aún sin verificar en el CRM"
+        );
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -1075,6 +1115,7 @@ function Detalle({ id, onBack, onEstadoCambiado }) {
                 {conv?.nombre_mostrar || conv?.contacto || "…"}
               </p>
               {conv && <TipoBadge tipo={conv.tipo} rol={conv.crm_rol} />}
+              {conv && <EstadoCrmBadge estado={conv.crm_estado} />}
             </div>
             <p className="truncate text-xs text-muted">
               {[conv?.crm_sucursal, conv?.telefono].filter(Boolean).join(" · ")}
