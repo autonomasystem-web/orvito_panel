@@ -56,6 +56,8 @@ export default function Conversaciones() {
   const [filtro, setFiltro] = useState("all");
   const [tipoFiltro, setTipoFiltro] = useState("todos"); // todos | interno | cliente
   const [rolFiltro, setRolFiltro] = useState("todos"); // rol del CRM (Asesor Comercial, Coordinador…)
+  // Asesores verificados cuyo chat NO está con Orvito (resuelto o con agente): ver AvisoSinOrvito.
+  const [sinOrvito, setSinOrvito] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("loading");
@@ -113,6 +115,7 @@ export default function Conversaciones() {
   const itemsVisibles = items.filter((c) => {
     if (tipoFiltro !== "todos" && (c.tipo || "cliente") !== tipoFiltro) return false;
     if (rolFiltro !== "todos" && c.crm_rol !== rolFiltro) return false;
+    if (sinOrvito && !((c.tipo || "cliente") === "interno" && SIN_ORVITO[c.status])) return false;
     if (
       _q &&
       !_norm(c.nombre_mostrar).includes(_q) &&
@@ -124,7 +127,7 @@ export default function Conversaciones() {
   });
 
   // ¿Seguimos cargando páginas para el filtro/búsqueda? (para el estado vacío)
-  const filtrandoActivo = busqueda.trim().length >= 2 || rolFiltro !== "todos";
+  const filtrandoActivo = busqueda.trim().length >= 2 || rolFiltro !== "todos" || sinOrvito;
   const buscandoMas = filtrandoActivo && (hayMas || loadingMore);
   filtrandoRef.current = filtrandoActivo;
 
@@ -325,12 +328,12 @@ export default function Conversaciones() {
   // páginas para poder encontrar conversaciones que aún no estaban cargadas
   // (antes "buscar" solo miraba la primera página → salía "sin conversaciones").
   useEffect(() => {
-    const filtrando = busqueda.trim().length >= 2 || rolFiltro !== "todos";
+    const filtrando = busqueda.trim().length >= 2 || rolFiltro !== "todos" || sinOrvito;
     if (filtrando && hayMas && !loadingMore && !refrescandoTodos && status === "ready") {
       cargarMas();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, rolFiltro, hayMas, loadingMore, refrescandoTodos, status]);
+  }, [busqueda, rolFiltro, sinOrvito, hayMas, loadingMore, refrescandoTodos, status]);
 
   const abrir = (id) => {
     setSel(id);
@@ -400,6 +403,22 @@ export default function Conversaciones() {
             {t.label}
           </button>
         ))}
+        <span className="mx-1 self-center text-line" aria-hidden="true">|</span>
+        <button
+          type="button"
+          onClick={() => setSinOrvito((v) => !v)}
+          title="Asesores verificados cuyo chat está resuelto o con agente: ahí Orvito no les contesta."
+          className={cx(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+            sinOrvito
+              ? "bg-orange-100 text-orange-800 ring-1 ring-orange-300"
+              : "border border-orange-200 bg-white text-orange-700 hover:bg-orange-50"
+          )}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+          Asesores sin Orvito
+          {sinOrvito && !hayMas && <span className="rounded-full bg-white/70 px-1.5">{itemsVisibles.length}</span>}
+        </button>
       </div>
 
       {/* búsqueda por nombre + filtro por rol de interno */}
@@ -426,12 +445,13 @@ export default function Conversaciones() {
             ))}
           </select>
         )}
-        {(busqueda || rolFiltro !== "todos") && (
+        {(busqueda || rolFiltro !== "todos" || sinOrvito) && (
           <button
             type="button"
             onClick={() => {
               setBusqueda("");
               setRolFiltro("todos");
+              setSinOrvito(false);
             }}
             className="text-xs font-medium text-muted hover:text-ink"
           >
@@ -475,7 +495,9 @@ export default function Conversaciones() {
                 icon={<Chat size={22} />}
                 title="Sin conversaciones"
                 text={
-                  busqueda || rolFiltro !== "todos"
+                  sinOrvito && !busqueda && rolFiltro === "todos"
+                    ? "Todos los asesores verificados de este filtro están con Orvito."
+                    : busqueda || rolFiltro !== "todos"
                     ? "Sin resultados para tu búsqueda o filtro."
                     : tipoFiltro === "todos"
                       ? "Cuando le escriban a Orvito, las verás aquí."
