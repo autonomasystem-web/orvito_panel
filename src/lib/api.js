@@ -427,6 +427,11 @@ export async function verDocumento(nombre) {
     total_chunks: Number(r.total_chunks) || 0,
   };
 }
+/* Título visible del documento (el que sale en la lista y el que Orvito lee al inicio de cada
+   fragmento). No reindexa ni toca el texto; el nombre_doc no cambia. */
+export async function cambiarTitulo(nombre_doc, titulo) {
+  return call("cambiar_titulo", { nombre_doc, titulo });
+}
 export async function guardarDocumento(nombre, contenido) {
   return call("guardar_documento", { nombre, contenido });
 }

@@ -25,6 +25,7 @@ import {
   moverDocumento,
   eliminarCarpeta,
   guardarOrdenCarpetas,
+  cambiarTitulo,
 } from "../lib/api.js";
 
 marked.setOptions({ breaks: false, gfm: true });
@@ -50,6 +51,7 @@ export default function Documentos() {
   const [menuAbierto, setMenuAbierto] = useState(null); // carpeta con el menú ⋮ abierto
   const [renombrar, setRenombrar] = useState(null); // carpeta a renombrar
   const [aEliminar, setAEliminar] = useState(null); // carpeta a eliminar
+  const [retitular, setRetitular] = useState(null); // documento al que se le cambia el título
   const dragIdx = useRef(null);
 
   const load = useCallback(async () => {
@@ -69,7 +71,7 @@ export default function Documentos() {
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return docs.filter((d) => !t || d.nombre_doc.toLowerCase().includes(t));
+    return docs.filter((d) => !t || `${d.nombre_doc} ${d.titulo || ""}`.toLowerCase().includes(t));
   }, [docs, q]);
 
   // Agrupa por carpeta (categoría) + incluye carpetas vacías del registro,
@@ -145,6 +147,13 @@ export default function Documentos() {
     } catch (e) {
       toast.error(e.message);
     }
+  };
+  const hacerRetitular = async (doc, titulo) => {
+    const r = await cambiarTitulo(doc.nombre_doc, titulo); // si falla, el modal muestra el error
+    if (r && r.error) throw new Error(r.error);
+    setRetitular(null);
+    toast.success(r && r.sin_cambios ? "El título ya era ese." : "Título actualizado.");
+    await load();
   };
   const moverDoc = async (nombreDoc, categoria) => {
     try {
@@ -334,12 +343,28 @@ export default function Documentos() {
                       <span className="shrink-0 text-brand-green">
                         <Book size={16} />
                       </span>
-                      <span className="truncate text-sm font-medium text-ink">{d.nombre_doc}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 block break-words text-sm font-medium leading-snug text-ink" title={d.titulo || d.nombre_doc}>
+                          {d.titulo || d.nombre_doc}
+                        </span>
+                        {d.titulo && d.titulo !== d.nombre_doc && (
+                          <span className="block truncate font-mono text-[10px] text-muted2">{d.nombre_doc}</span>
+                        )}
+                      </span>
                       {q.trim() && d.categoria && (
                         <span className="ml-auto shrink-0 rounded-full bg-soft px-2 py-0.5 text-[10px] font-semibold text-brand-dark">
                           {proyLabel(d.categoria)}
                         </span>
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      title="Cambiar título"
+                      aria-label={`Cambiar el título de ${d.titulo || d.nombre_doc}`}
+                      onClick={() => setRetitular(d)}
+                      className="shrink-0 rounded-lg border border-line bg-white p-2 text-muted hover:text-ink"
+                    >
+                      <Pencil size={14} />
                     </button>
                     <select
                       title="Mover a otra carpeta"
@@ -377,6 +402,8 @@ export default function Documentos() {
                 <Editor
                   key={sel.nombre_doc}
                   nombre={sel.nombre_doc}
+                  tituloLista={docs.find((x) => x.nombre_doc === sel.nombre_doc)?.titulo}
+                  onCambiarTitulo={(titulo) => setRetitular({ nombre_doc: sel.nombre_doc, titulo })}
                   esNuevo={!!sel.nuevo}
                   onBack={() => setSel(null)}
                   onGuardado={onGuardado}
@@ -405,6 +432,7 @@ export default function Documentos() {
         onClose={() => setRenombrar(null)}
         onRenombrar={hacerRenombrar}
       />
+      <CambiarTituloModal doc={retitular} onClose={() => setRetitular(null)} onGuardar={hacerRetitular} />
       <EliminarCarpetaModal
         carpeta={aEliminar}
         proyLabel={proyLabel}
@@ -418,7 +446,7 @@ export default function Documentos() {
 }
 
 /* ---------------- Editor ---------------- */
-function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
+function Editor({ nombre, tituloLista, onCambiarTitulo, esNuevo, onBack, onGuardado, onEliminado }) {
   const toast = useToast();
   const [status, setStatus] = useState(esNuevo ? "ready" : "loading");
   const [meta, setMeta] = useState({ titulo: nombre, categoria: "", total_chunks: 0 });
@@ -536,9 +564,24 @@ function Editor({ nombre, esNuevo, onBack, onGuardado, onEliminado }) {
             ←
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-ink">{nombre}</p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate font-semibold text-ink" title={soyNuevo ? nombre : tituloLista || meta.titulo || nombre}>
+                {soyNuevo ? nombre : tituloLista || meta.titulo || nombre}
+              </p>
+              {!soyNuevo && status === "ready" && (
+                <button
+                  type="button"
+                  onClick={() => onCambiarTitulo?.(tituloLista || meta.titulo || nombre)}
+                  title="Cambiar título"
+                  aria-label="Cambiar título"
+                  className="shrink-0 rounded-md p-1 text-muted hover:bg-soft hover:text-ink"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </div>
             <p className="truncate text-xs text-muted2">
-              {soyNuevo ? "Documento nuevo" : `${meta.categoria || "—"} · ${meta.total_chunks} fragmentos`}
+              {soyNuevo ? "Documento nuevo" : `${nombre} · ${meta.categoria || "—"} · ${meta.total_chunks} fragmentos`}
               {dirty && <span className="ml-2 text-amber">• sin guardar</span>}
             </p>
           </div>
@@ -772,6 +815,69 @@ function RenombrarCarpetaModal({ carpeta, proyLabel, onClose, onRenombrar }) {
       <p className="text-xs text-muted2">
         Todos los documentos de esta carpeta quedan bajo el nuevo nombre.
       </p>
+    </Modal>
+  );
+}
+
+/* ---------------- Modal cambiar título de un documento ---------------- */
+function CambiarTituloModal({ doc, onClose, onGuardar }) {
+  const [titulo, setTitulo] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setTitulo(doc ? doc.titulo || doc.nombre_doc : "");
+    setError("");
+    setGuardando(false);
+  }, [doc]);
+  const limpio = titulo.replace(/\s+/g, " ").trim();
+  const conCorchetes = /[[\]]/.test(limpio);
+  const actual = doc ? doc.titulo || doc.nombre_doc : "";
+  const puede = !!limpio && limpio !== actual && !conCorchetes && limpio.length <= 150 && !guardando;
+  const guardar = async () => {
+    if (!puede) return;
+    setGuardando(true);
+    setError("");
+    try {
+      await onGuardar(doc, limpio);
+    } catch (e) {
+      setError(e.message || "No se pudo cambiar el título.");
+      setGuardando(false);
+    }
+  };
+  return (
+    <Modal
+      open={!!doc}
+      onClose={() => !guardando && onClose()}
+      title="Cambiar título"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={guardando}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar} disabled={!puede}>
+            {guardando ? "Guardando…" : "Cambiar título"}
+          </Button>
+        </>
+      }
+    >
+      <Field
+        label="Título del documento"
+        hint={conCorchetes ? "El título no puede llevar corchetes [ ]." : `${limpio.length}/150`}
+        hintTone={conCorchetes ? "amber" : "muted"}
+      >
+        <Input
+          value={titulo}
+          maxLength={150}
+          onChange={(e) => setTitulo(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && guardar()}
+          autoFocus
+        />
+      </Field>
+      <p className="text-xs text-muted2">
+        Es el nombre que verás en la lista y el que Orvito lee al inicio de cada parte del documento. El texto no
+        cambia. El nombre interno <span className="font-mono">{doc?.nombre_doc}</span> se queda igual.
+      </p>
+      {error && <p className="mt-2 text-xs font-medium text-danger">{error}</p>}
     </Modal>
   );
 }
