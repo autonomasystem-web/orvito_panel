@@ -308,7 +308,7 @@ export default function Documentos() {
           </>
         ) : (
           /* NIVEL 2 / búsqueda — lista de docs + editor del md */
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_1fr]">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_1fr] xl:grid-cols-[minmax(0,360px)_1fr]">
             {/* LISTA */}
             <div className={cx("min-w-0", sel && "hidden md:block")}>
               {proyectoSel && !q.trim() && (
@@ -330,60 +330,76 @@ export default function Documentos() {
                   ? filtered
                   : grupos.find((g) => g.proyecto === proyectoSel)?.items ?? []
                 ).map((d) => (
-                  <div key={d.nombre_doc} className="flex items-center gap-2">
+                  <div
+                    key={d.nombre_doc}
+                    className={cx(
+                      "flex items-start gap-1 rounded-xl border p-3 transition-colors",
+                      selName === d.nombre_doc ? "border-brand-leaf/50 bg-soft/60" : "border-line bg-white hover:bg-softer"
+                    )}
+                  >
                     <button
                       onClick={() => setSel({ nombre_doc: d.nombre_doc })}
-                      className={cx(
-                        "flex min-w-0 flex-1 items-center gap-2 rounded-xl border p-3 text-left transition-colors",
-                        selName === d.nombre_doc
-                          ? "border-brand-leaf/50 bg-soft/60"
-                          : "border-line bg-white hover:bg-softer"
-                      )}
+                      className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
                     >
-                      <span className="shrink-0 text-brand-green">
+                      <span className="mt-0.5 shrink-0 text-brand-green">
                         <Book size={16} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 block break-words text-sm font-medium leading-snug text-ink" title={d.titulo || d.nombre_doc}>
+                        {/* Título completo en hasta 2 renglones (sin partir palabras); el nombre interno abajo. */}
+                        <span className="line-clamp-2 text-sm font-medium leading-snug text-ink" title={d.titulo || d.nombre_doc}>
                           {d.titulo || d.nombre_doc}
                         </span>
-                        {d.titulo && d.titulo !== d.nombre_doc && (
-                          <span className="block truncate font-mono text-[10px] text-muted2">{d.nombre_doc}</span>
+                        {((d.titulo && d.titulo !== d.nombre_doc) || (q.trim() && d.categoria)) && (
+                          <span className="mt-1 flex min-w-0 items-center gap-1.5">
+                            {d.titulo && d.titulo !== d.nombre_doc && (
+                              <span className="truncate font-mono text-[10px] text-muted2">{d.nombre_doc}</span>
+                            )}
+                            {q.trim() && d.categoria && (
+                              <span className="shrink-0 rounded-full bg-soft px-2 py-0.5 text-[10px] font-semibold text-brand-dark">
+                                {proyLabel(d.categoria)}
+                              </span>
+                            )}
+                          </span>
                         )}
                       </span>
-                      {q.trim() && d.categoria && (
-                        <span className="ml-auto shrink-0 rounded-full bg-soft px-2 py-0.5 text-[10px] font-semibold text-brand-dark">
-                          {proyLabel(d.categoria)}
-                        </span>
-                      )}
                     </button>
-                    <button
-                      type="button"
-                      title="Cambiar título"
-                      aria-label={`Cambiar el título de ${d.titulo || d.nombre_doc}`}
-                      onClick={() => setRetitular(d)}
-                      className="shrink-0 rounded-lg border border-line bg-white p-2 text-muted hover:text-ink"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <select
-                      title="Mover a otra carpeta"
-                      value=""
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v) moverDoc(d.nombre_doc, v);
-                      }}
-                      className="shrink-0 rounded-lg border border-line bg-white px-2 py-2 text-xs text-muted hover:text-ink"
-                    >
-                      <option value="">Mover a…</option>
-                      {todasCarpetas
-                        .filter((c) => c !== (String(d.categoria || "").trim() || "general"))
-                        .map((c) => (
-                          <option key={c} value={c}>
-                            {proyLabel(c)}
-                          </option>
-                        ))}
-                    </select>
+                    {/* Acciones como iconos chicos: no le quitan ancho al título. */}
+                    <div className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        title="Cambiar título"
+                        aria-label={`Cambiar el título de ${d.titulo || d.nombre_doc}`}
+                        onClick={() => setRetitular(d)}
+                        className="grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-white hover:text-ink"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <label
+                        title="Mover a otra carpeta"
+                        className="relative grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-muted transition-colors hover:bg-white hover:text-ink"
+                      >
+                        <Folder size={14} />
+                        {/* El select nativo va encima, invisible: al tocar el icono abre la lista de carpetas. */}
+                        <select
+                          aria-label="Mover a otra carpeta"
+                          value=""
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v) moverDoc(d.nombre_doc, v);
+                          }}
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        >
+                          <option value="">Mover a…</option>
+                          {todasCarpetas
+                            .filter((c) => c !== (String(d.categoria || "").trim() || "general"))
+                            .map((c) => (
+                              <option key={c} value={c}>
+                                {proyLabel(c)}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -555,7 +571,8 @@ function Editor({ nombre, tituloLista, onCambiarTitulo, esNuevo, onBack, onGuard
       {/* header — en móvil se apila: título arriba, controles abajo (evita que choquen) */}
       <div className="flex flex-col gap-2 border-b border-line px-4 py-3 md:flex-row md:flex-wrap md:items-center">
         {/* título */}
-        <div className="flex min-w-0 items-center gap-2 md:flex-1">
+        {/* Ancho mínimo: si no cabe junto a los botones, ellos bajan de renglón en vez de cortar el título. */}
+        <div className="flex min-w-0 items-center gap-2 md:min-w-[18rem] md:flex-1">
           <button
             onClick={onBack}
             className="shrink-0 rounded-lg p-1 text-muted hover:bg-soft hover:text-ink md:hidden"
